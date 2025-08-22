@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, User, Sparkles } from 'lucide-react';
+// ...existing code...
 
 interface ChatRoomsProps {
   onNavigate: (page: string) => void;
@@ -8,6 +8,33 @@ interface ChatRoomsProps {
 const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
   const [selectedDeal, setSelectedDeal] = useState(0);
   const [message, setMessage] = useState('');
+    const [chatMessages, setChatMessages] = useState([
+      {
+        type: 'ai',
+        text: `Since Portia AI (Cloud API) agents often need a reference image when you're building a visual/keyword-based search agent, the reference image is usually:
+   - An example input image you want your agent to work on.
+   - For product search: one sample product image (e.g., sneaker, mobile skin, etc.)
+   - For visual query: an image containing the object you want the agent to detect/compare.
+   👉 In your case (keyword + Portia), you should give:
+   - Either a sample product image (so the agent learns what kind of objects to compare with database images).`
+      },
+      {
+        type: 'user',
+        text: 'Okay Let me know about Portia AI (Cloud API) basics and how do i implement a basic agent'
+      }
+    ]);
+    const chatAreaRef = React.useRef<HTMLDivElement>(null);
+    React.useEffect(() => {
+      if (chatAreaRef.current) {
+        chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+      }
+    }, [chatMessages]);
+    const handleSendMessage = () => {
+      if (message.trim()) {
+        setChatMessages([...chatMessages, { type: 'user', text: message }]);
+        setMessage('');
+      }
+    };
 
   const deals = [
     { id: 1, title: 'Deal 1 Title', isActive: true },
@@ -15,16 +42,12 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
     { id: 3, title: 'Deal 3 Title', isActive: false }
   ];
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      setMessage('');
-    }
-  };
+  // Only keep the dynamic handleSendMessage above
 
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
-      <div className="w-80 bg-orange-500 p-6 slide-in-left">
+      <div className="w-80 bg-orange-500 p-6 rounded-t-3xl flex-shrink-0">
         <div className="space-y-4">
           {deals.map((deal, index) => (
             <button
@@ -43,7 +66,7 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col slide-in-right">
+      <div className="flex-1 flex flex-col">
         <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-gray-900">Deal Title</h1>
@@ -55,46 +78,26 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 p-6 space-y-6 bg-orange-50/30">
-          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
-            <div className="flex items-start space-x-3 mb-4">
-              <Sparkles className="text-orange-500 mt-1" size={20} />
-              <div className="flex-1">
-                <p className="text-gray-800 leading-relaxed mb-4">
-                  Since Portia AI (Cloud API) agents often need a reference image when you're building a visual/
-                  keyword-based search agent, the reference image is usually:
-                </p>
-                <ul className="list-disc list-inside space-y-2 text-gray-700 mb-4">
-                  <li>An example input image you want your agent to work on.</li>
-                  <li>For product search: one sample product image (e.g., sneaker, mobile skin, etc.)</li>
-                  <li>For visual query: an image containing the object you want the agent to detect/compare.</li>
-                </ul>
-                <p className="text-gray-800 mb-4">👉 In your case (keyword + Portia), you should give:</p>
-                <ul className="list-disc list-inside space-y-2 text-gray-700">
-                  <li>Either a sample product image (so the agent learns what kind of objects to compare with database images).</li>
-                </ul>
+        <div ref={chatAreaRef} className="flex-1 p-6 bg-orange-50/30 overflow-y-auto space-y-4" style={{ minHeight: '400px', maxHeight: 'calc(100vh - 220px)' }}>
+          {chatMessages.map((msg, idx) => (
+            msg.type === 'ai' ? (
+              <div key={idx} className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
+                <div className="flex items-start space-x-3 mb-2">
+                  <img src="/stars.svg" alt="Stars" className="mt-1" width={20} height={20} />
+                  <div className="flex-1">
+                    {msg.text.split('\n').map((line, i) => (
+                      <p key={i} className="text-gray-800 leading-relaxed mb-1">{line}</p>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-            
-            <div className="flex space-x-4">
-              <button className="border-2 border-dashed border-orange-300 text-orange-600 px-4 py-2 rounded-lg hover:bg-orange-100 transition-colors duration-200">
-                Send Invoice
-              </button>
-              <button className="border-2 border-dashed border-orange-300 text-orange-600 px-4 py-2 rounded-lg hover:bg-orange-100 transition-colors duration-200">
-                Send Invoice
-              </button>
-              <button className="border-2 border-dashed border-orange-300 text-orange-600 px-4 py-2 rounded-lg hover:bg-orange-100 transition-colors duration-200">
-                Send Invoice
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 flex items-start space-x-3">
-            <User className="text-gray-600 mt-1" size={20} />
-            <p className="text-gray-800">
-              Okay Let me know about Portia AI (Cloud API) basics and how do i implement a basic agent
-            </p>
-          </div>
+            ) : (
+              <div key={idx} className="bg-white border border-gray-200 rounded-2xl p-6 flex items-start space-x-3">
+                <img src="/rocket.png" alt="User" className="mt-1" width={20} height={20} />
+                <p className="text-gray-800">{msg.text}</p>
+              </div>
+            )
+          ))}
         </div>
 
         {/* Input Area */}
@@ -114,7 +117,7 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
                   onClick={handleSendMessage}
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-orange-500 hover:bg-orange-600 p-2 rounded-full text-white transition-colors duration-200"
                 >
-                  <Send size={20} />
+                  <span role="img" aria-label="Send" style={{fontSize:'20px'}}>📤</span>
                 </button>
               </div>
             </div>

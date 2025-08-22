@@ -9,10 +9,14 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = ({ currentPage, onNavigate }) => {
   return (
     <nav className="w-full max-w-6xl mx-auto p-6">
-      <div className="bg-white/80 backdrop-blur-md rounded-full border border-gray-200 px-8 py-4 flex items-center justify-between shadow-lg">
-        <div className="text-2xl font-bold text-orange-500">
-          Kyodo AI
-        </div>
+        <div className="bg-white/80 backdrop-blur-md rounded-full border border-gray-200 px-8 py-4 flex items-center justify-between shadow-lg">
+          <button
+            className="text-2xl font-bold text-orange-500 focus:outline-none"
+            onClick={() => onNavigate('home')}
+            aria-label="Go to Home"
+          >
+            Kyodo AI
+          </button>
         
         <div className="flex items-center space-x-8">
           <button
