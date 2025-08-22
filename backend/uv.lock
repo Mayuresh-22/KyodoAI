@@ -347,6 +347,15 @@ wheels = [
 ]
 
 [[package]]
+name = "eval-type-backport"
+version = "0.2.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/ea/8b0ac4469d4c347c6a385ff09dc3c048c2d021696664e26c7ee6791631b5/eval_type_backport-0.2.2.tar.gz", hash = "sha256:f0576b4cf01ebb5bd358d02314d31846af5e07678387486e2c798af0e7d849c1", size = 9079 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/31/55cd413eaccd39125368be33c46de24a1f639f2e12349b0361b4678f3915/eval_type_backport-0.2.2-py3-none-any.whl", hash = "sha256:cb6ad7c393517f476f96d456d0412ea80f0a8cf96f6892834cd9340149111b0a", size = 5830 },
+]
+
+[[package]]
 name = "fastapi"
 version = "0.116.1"
 source = { registry = "https://pypi.org/simple" }
@@ -844,6 +853,15 @@ wheels = [
 ]
 
 [[package]]
+name = "invoke"
+version = "2.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/42/127e6d792884ab860defc3f4d80a8f9812e48ace584ffc5a346de58cdc6c/invoke-2.2.0.tar.gz", hash = "sha256:ee6cbb101af1a859c7fe84f2a264c059020b0cb7fe3535f9424300ab568f6bd5", size = 299835 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0a/66/7f8c48009c72d73bc6bbe6eb87ac838d6a526146f7dab14af671121eb379/invoke-2.2.0-py3-none-any.whl", hash = "sha256:6ea924cc53d4f78e3d98bc436b08069a03077e6f85ad1ddaa8a116d7dad15820", size = 160274 },
+]
+
+[[package]]
 name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -966,15 +984,15 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
-    { name = "portia-sdk-python", extra = ["google"] },
+    { name = "portia-sdk-python", extra = ["google", "mistralai"] },
     { name = "supabase" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.116.1" },
-    { name = "portia-sdk-python", extras = ["google"], specifier = ">=0.7.0" },
-    { name = "supabase", specifier = ">=2.18.1" },
+    { name = "portia-sdk-python", extras = ["google", "mistralai"], specifier = ">=0.7.2" },
+    { name = "supabase", specifier = ">=2.3.4" },
 ]
 
 [[package]]
@@ -1041,6 +1059,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ba/24/4ad44e9a8ad25682c22b56f0b665eb6d87090f2360355b48095e285a7810/langchain_google_genai-2.1.9.tar.gz", hash = "sha256:cd5d6f644b8dac3e312e30101bb97541aab240e82678e87a4df039ee1dc77531", size = 45866 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/84/d8/e1162835d5d6eefaae341c2d1cf750ab53222a421252346905187e53b8a2/langchain_google_genai-2.1.9-py3-none-any.whl", hash = "sha256:8d3aab59706b8f8920a22bcfd63c5000ce430fe61db6ecdec262977d1a0be5b8", size = 49381 },
+]
+
+[[package]]
+name = "langchain-mistralai"
+version = "0.2.11"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx", marker = "python_full_version < '4.0'" },
+    { name = "httpx-sse", marker = "python_full_version < '4.0'" },
+    { name = "langchain-core", marker = "python_full_version < '4.0'" },
+    { name = "pydantic", marker = "python_full_version < '4.0'" },
+    { name = "tokenizers", marker = "python_full_version < '4.0'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6d/f5/7afd7dcd252e5abaaf3a13849733a32aaf0b5f2290dc62bd2c72afdc33e4/langchain_mistralai-0.2.11.tar.gz", hash = "sha256:0816bb9972c9e407d9eca567ad16095ec4f0f5bb9094890692ceb149aa72c71e", size = 21718 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/48/35/cf2e31b5af5b6798437bb7c92b13d0ed7c4bdde87034227b49be907fe272/langchain_mistralai-0.2.11-py3-none-any.whl", hash = "sha256:6940b551f8e63ca9163e8f5a156aab6814238f9b19302405b6af9d8703e7f762", size = 16560 },
 ]
 
 [[package]]
@@ -1241,6 +1275,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979 },
+]
+
+[[package]]
+name = "mistralai"
+version = "1.9.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "eval-type-backport" },
+    { name = "httpx" },
+    { name = "invoke" },
+    { name = "pydantic" },
+    { name = "python-dateutil" },
+    { name = "pyyaml" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ec/0b/3f9132f4b49178eafdc00f4def719433ec6e85da5df3a96b283ed5f4df3c/mistralai-1.9.7.tar.gz", hash = "sha256:ec5d32caa2da8d31637841d9be74ef8246d3e3281007fafacaea51145e2d4e15", size = 197398 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/d3/f7b73c4a6d621a13b0b06bb2a23ef3e8c775ef01f0daefd0ae91ead0f2af/mistralai-1.9.7-py3-none-any.whl", hash = "sha256:abbd32c0c21a870681bca72d4e667a59c02cc87f8d2def788c81b7dc361e8c0f", size = 425764 },
 ]
 
 [[package]]
@@ -1527,7 +1579,7 @@ wheels = [
 
 [[package]]
 name = "portia-sdk-python"
-version = "0.7.0"
+version = "0.7.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anthropic" },
@@ -1553,15 +1605,19 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "testcontainers", extra = ["redis"], marker = "python_full_version < '4.0'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/be/0c/c621f32ba7d3def04aaaa4994d28e26ad88d73529f3f8a07415e4c031807/portia_sdk_python-0.7.0.tar.gz", hash = "sha256:68fb3d62b9415d1e2983da0eb26c0b054ef5518a9ebe76a52261aa4368ebe75e", size = 152793 }
+sdist = { url = "https://files.pythonhosted.org/packages/86/1b/211344b0e0d577c4e493e5015221a13a94fc3e413c8c84867727921d7e72/portia_sdk_python-0.7.2.tar.gz", hash = "sha256:4169518f9fe9dbdde83c70ab83dc9d26fe6664be01bf784c52fa19fc2574d3cb", size = 154122 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/2c/2e00cbf7116143ca9daf6cc05d22de4d08eef303ab6ef167e55c36c0d34f/portia_sdk_python-0.7.0-py3-none-any.whl", hash = "sha256:044ba477dd9736a482c4d56d7c0cfa16cfe564ff91ca6cd80600bcfe1e5372a8", size = 191247 },
+    { url = "https://files.pythonhosted.org/packages/83/60/2ed863a58f7fe6fb36922a59c9856c41327414c5dc4d496a5ba2c26eb3f2/portia_sdk_python-0.7.2-py3-none-any.whl", hash = "sha256:50577efe709f3cf30cd1d4cc2fd9fb793d2d6da90bb059d2373baf1430040ba3", size = 192647 },
 ]
 
 [package.optional-dependencies]
 google = [
     { name = "google-genai" },
     { name = "langchain-google-genai", marker = "python_full_version < '4.0'" },
+]
+mistralai = [
+    { name = "langchain-mistralai", marker = "python_full_version < '4.0'" },
+    { name = "mistralai" },
 ]
 
 [[package]]

@@ -6,6 +6,6 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.116.1",
-    "portia-sdk-python[google]>=0.7.0",
-    "supabase>=2.18.1",
+    "portia-sdk-python[google,mistralai]>=0.7.2",
+    "supabase>=2.3.4",
 ]
