@@ -1,82 +1,10 @@
 import React, { useState } from 'react';
 // ...existing code...
-// Vertical Generation Timeline 
-import Timeline from '@mui/lab/Timeline';
-import TimelineItem from '@mui/lab/TimelineItem';
-import TimelineSeparator from '@mui/lab/TimelineSeparator';
-import TimelineConnector from '@mui/lab/TimelineConnector';
-import TimelineContent from '@mui/lab/TimelineContent';
-import TimelineDot from '@mui/lab/TimelineDot';
-
-// Optional: MUI Icons for different states
-import CircularProgress from '@mui/material/CircularProgress';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
 
 /**
  * Props:
  * - onNavigate: parent-provided navigation handler (not used here yet, but available)
  */
-
-// AI generation step tracking
-type StepStatus = 'pending' | 'active' | 'completed' | 'error';
-
-interface AIStep {
-  id: string;
-  label: string;
-  detail?: string;
-  status: StepStatus;
-}
-
-const [aiSteps, setAiSteps] = useState<AIStep[]>([
-  { id: 'queue', label: 'Queued', detail: 'Waiting for worker', status: 'pending' },
-  { id: 'analyze', label: 'Analyzing prompt', detail: 'Extracting intent', status: 'pending' },
-  { id: 'retrieve', label: 'Fetching context', detail: 'Searching emails', status: 'pending' },
-  { id: 'generate', label: 'Generating response', detail: 'Planning reply', status: 'pending' },
-  { id: 'stream', label: 'Streaming', detail: 'Sending tokens', status: 'pending' },
-]);
-
-const [isGenerating, setIsGenerating] = useState(false);
-
-const renderTimeline = () => (
-  <Timeline sx={{ padding: 0, margin: 0 }}>
-    {aiSteps.map((step, index) => (
-      <TimelineItem key={step.id} sx={{ minHeight: 60 }}>
-        <TimelineSeparator>
-          <TimelineDot 
-            color={
-              step.status === 'completed' ? 'success' :
-              step.status === 'active' ? 'primary' :
-              step.status === 'error' ? 'error' : 'grey'
-            }
-            sx={{ 
-              bgcolor: step.status === 'active' ? '#ff6b35' : undefined // Your orange color
-            }}
-          >
-            {step.status === 'active' && (
-              <CircularProgress size={16} sx={{ color: 'white' }} />
-            )}
-            {step.status === 'completed' && (
-              <CheckCircleIcon sx={{ fontSize: 16 }} />
-            )}
-            {step.status === 'error' && (
-              <ErrorIcon sx={{ fontSize: 16 }} />
-            )}
-          </TimelineDot>
-          {index < aiSteps.length - 1 && <TimelineConnector />}
-        </TimelineSeparator>
-        <TimelineContent sx={{ py: '12px', px: 2 }}>
-          <div className="text-sm font-medium text-gray-900">{step.label}</div>
-          {step.detail && (
-            <div className="text-xs text-gray-600 mt-1">{step.detail}</div>
-          )}
-        </TimelineContent>
-      </TimelineItem>
-    ))}
-  </Timeline>
-);
-
-
 interface ChatRoomsProps {
   onNavigate: (page: string) => void;
 }
@@ -96,7 +24,6 @@ interface ChatRoomsProps {
  * - Auto-scrolls to bottom on new messages
  * - Hitting Enter or clicking send appends a user message (no AI call yet)
  */
-
 const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
   // Index of the selected deal in the sidebar
   const [selectedDeal, setSelectedDeal] = useState(0);
@@ -188,7 +115,6 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
           </div>
         </div>
 {/* 
-
 
 
 
