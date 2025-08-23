@@ -100,11 +100,12 @@ const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
 
           {/* Secondary CTA: Login (placeholder) */}
           <button
-            onClick={() => alert('Login page coming soon!')}
-            className="bg-white border border-orange-500 text-orange-500 px-8 py-4 rounded-full text-lg font-semibold transition-all duration-300 shadow hover:bg-orange-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:ring-offset-2"
-          >
-            Sign Up
-          </button>
+              onClick={() => onNavigate('register')} // This should now work
+              className="bg-white border border-orange-500 text-orange-500 px-8 py-4 rounded-full text-lg font-semibold transition-all duration-300 shadow hover:bg-orange-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-200 focus-visible:ring-offset-2"
+            >
+              Sign Up
+            </button>
+
 
           {/* Secondary CTA: Register (placeholder) */}
           {/* <button
