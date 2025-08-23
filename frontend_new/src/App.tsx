@@ -4,6 +4,7 @@ import HomePage from './components/HomePage';
 import Dashboard from './components/Dashboard';
 import ChatRooms from './components/ChatRooms';
 import Navigation from './components/Navigation';
+import RegistrationForm from './components/RegistrationForm'; // Add this import
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -14,6 +15,7 @@ function App() {
       {currentPage === 'home' && <HomePage onNavigate={setCurrentPage} />}
       {currentPage === 'dashboard' && <Dashboard onNavigate={setCurrentPage} />}
       {currentPage === 'chatrooms' && <ChatRooms onNavigate={setCurrentPage} />}
+      {currentPage === 'register' && <RegistrationForm onNavigate={setCurrentPage} />}
     </div>
   );
 }
