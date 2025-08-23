@@ -25,42 +25,42 @@ from helpers.schemas import EmailItem
 
 class PortiaTask(Enum):
     SEARCH_COLAB_EMAILS = ("""
-Search the user's mailbox (last 30 days) for emails that are genuine collaboration or brand deal requests intended for the user, sent by other parties (not the user themselves). Only include emails where the sender is clearly reaching out to propose a partnership, sponsorship, brand deal, or collaboration, and where the intent is explicit in the message content—not just emails that contain related keywords.
+        Search the user's mailbox (last 30 days) for emails that are genuine collaboration or brand deal requests intended for the user, sent by other parties (not the user themselves). Only include emails where the sender is clearly reaching out to propose a partnership, sponsorship, brand deal, or collaboration, and where the intent is explicit in the message content—not just emails that contain related keywords.
 
-Exclude:
-- Newsletters, notifications, or automated emails.
-- Emails where the user is the sender or where the message is not a direct request to the user.
-- Emails that merely mention collaboration/brand terms without a clear intent to initiate a deal.
+        Exclude:
+        - Newsletters, notifications, or automated emails.
+        - Emails where the user is the sender or where the message is not a direct request to the user.
+        - Emails that merely mention collaboration/brand terms without a clear intent to initiate a deal.
 
-REQUIRED output schema (exact JSON keys and types):
-{
-    "emails": [
+        REQUIRED output schema (exact JSON keys and types):
         {
-            "email_id": "string",                 # unique id or thread id
-            "from_name": "string",
-            "from_email": "string",
-            "subject": "string",
-            "snippet": "string",           # short text preview (1-2 lines)
-            "received_at": "ISO8601 string",
-            "thread_link": "string (permalink)",
-            "labels": ["brand","offer","sponsored","negotiation"],
-            "tags": ["optional category tags"],
-            "relevance_score": 0-1,          # how likely this is a colab offer
-            "confidence": 0-1,               # model confidence in parsing
-            "first_received": "ISO8601 string",
-            "last_received": "ISO8601 string",
-            "ui_actions": ["start_colab_process"],
-            "notes": "string (optional parsed notes)"
+            "emails": [
+                {
+                    "email_id": "string",                 # unique id of email
+                    "from_name": "string",
+                    "from_email": "string",
+                    "subject": "string",
+                    "snippet": "string",           # short text preview (1-2 lines)
+                    "received_at": "ISO8601 string",
+                    "thread_link": "string (permalink)",
+                    "labels": ["brand","offer","sponsored","negotiation"],
+                    "tags": ["optional category tags"],
+                    "relevance_score": 0-1,          # how likely this is a colab offer
+                    "confidence": 0-1,               # model confidence in parsing
+                    "first_received": "ISO8601 string",
+                    "last_received": "ISO8601 string",
+                    "ui_actions": ["start_colab_process"],
+                    "notes": "string (optional parsed notes)"
+                }
+            ],
+            "summary": {
+                "total_found": 0,
+                "by_label": { "brand": 0, "offer": 0, "sponsored": 0 },
+                "top_senders": [{ "email": "", "count": 0 }]
+            }
         }
-    ],
-    "summary": {
-        "total_found": 0,
-        "by_label": { "brand": 0, "offer": 0, "sponsored": 0 },
-        "top_senders": [{ "email": "", "count": 0 }]
-    }
-}
-"""
-)
+        """
+    )
 
     START_COLAB_PROCESS = ("""
         Trigger: user has clicked the UI action/button (label examples: "Start Colab Process", "Activate AI")
@@ -68,26 +68,26 @@ REQUIRED output schema (exact JSON keys and types):
         run this workflow one instruction at a time and return a single coherent JSON summary
         for the UI to present and for subsequent autonomous actions.
 
-        Step A) CONTEXT & PARSING
+        Step 1) CONTEXT & PARSING
             - Accept the selected email (raw text, thread link, metadata) and optional
                 user preference context appended by caller.
             - Parse and return `email_parsed` with: { sender, sender_email, brand, subject,
                 offer_summary, proposed_deliverables, compensation_terms, exclusivity, deadlines,
                 attachments, thread_link, received_at }.
 
-        Step B) PREFERENCE MATCHING
+        Step 2) PREFERENCE MATCHING
             - Compare parsed fields with the creator's stored preferences (tone, min_comp,
                 allowed_exclusivity, timeline_limits, deliverable_format). Return `analysis`:
                 { fit: high|medium|low, relevance_notes, missing_info: [...], risk_flags: [...] }.
 
-        Step C) DECIDE & ROUTE
+        Step 3) DECIDE & ROUTE
             - Based on `analysis`, choose a single `next_action` with `confidence_score`:
                 * ready_to_proceed  -> TIMELINE 1 (prepare/send contract)
                 * need_clarification -> TIMELINE 2 (ask questions / iterate)
                 * reject            -> Draft polite decline
             - Provide rationale for decision and an ordered `next_steps` array.
 
-        Step D) TIMELINE 1 (ready_to_proceed)
+        Step 4) TIMELINE 1 (ready_to_proceed)
             - Draft `temporary_contract` including: summary_terms, payment_terms,
                 deliverables, milestones, timeline, acceptance_criteria, basic clauses (IP,
                 termination, exclusivity). Keep it creator-friendly and editable.
@@ -96,23 +96,23 @@ REQUIRED output schema (exact JSON keys and types):
             - Provide a UI action set for the creator: ["preview_contract", "send_contract_and_email",
                 "save_draft", "schedule_meeting", "edit_terms"].
 
-        Step E) TIMELINE 2 (need_clarification)
+        Step 5) TIMELINE 2 (need_clarification)
             - Generate `clarifying_questions` targeting missing/ambiguous fields.
             - Draft `suggested_reply` to request clarifications and optionally propose
                 provisional terms. Produce `temporary_contract_draft` skeleton for iteration.
             - Provide UI action set: ["send_questions", "save_draft", "escalate_to_human"].
 
-        Step F) REJECT
+        Step 6) REJECT
             - Draft a concise, polite `suggested_reply` explaining reasons and optionally
                 offer alternatives. Provide UI action: ["send_decline", "save_note"].
 
-        Step G) AUTONOMOUS TOOL USE
+        Step 7) AUTONOMOUS TOOL USE
             - The agent may autonomously choose to perform allowed side-tasks (if permitted
                 by user settings): e.g., schedule a meeting, create a calendar event, save
                 contract to docs, or open a negotiation thread. Enumerate chosen `autonomous_actions`.
 
-        Step H) ITERATION & LOOP
-            - When partner replies, re-run Steps A-G. Always include `assumptions`, `sources`,
+        Step 8) ITERATION & LOOP
+            - When partner replies, re-run Steps 1-7. Always include `assumptions`, `sources`,
                 and a short `rationale` for changes between iterations. Stop iterating when
                 `next_action` == ready_to_proceed and creator confirms, or when `reject` is final.
 
