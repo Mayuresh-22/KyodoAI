@@ -4,15 +4,10 @@ from typing import Any, Dict, Optional, Union
 
 from portia import (
     Config,
-    ExecutionAgentType,
     LLMProvider,
     LLMTool,
-    Output,
-    Plan,
-    PlanRun,
     Portia,
-    DefaultToolRegistry,
-    Step,
+    PortiaToolRegistry,
     StorageClass,
     logger,
 )
@@ -20,7 +15,8 @@ from portia.cli import CLIExecutionHooks
 from portia.end_user import EndUser
 from supabase_auth import User
 
-from helpers.schemas import EmailItem
+from helpers.schemas import SearchColabEmailsResponse
+from helpers.supabase_helper import SupabaseHelper
 
 
 class PortiaTask(Enum):
@@ -32,7 +28,7 @@ class PortiaTask(Enum):
         - Emails where the user is the sender or where the message is not a direct request to the user.
         - Emails that merely mention collaboration/brand terms without a clear intent to initiate a deal.
 
-        REQUIRED output schema (exact JSON keys and types):
+        REQUIRED FINAL output schema (exact JSON keys and types):
         {
             "emails": [
                 {
@@ -158,45 +154,53 @@ class PortiaHelper:
     ) -> None:
         load_dotenv(override=True)
 
-        self.config = Config.from_default(llm_provider=llm_provider, storage_class=storage_class)
+        self.config = Config.from_default(
+            default_model="gemini-2.5-flash-lite", 
+            storage_class=storage_class
+        )
+        self.supabase_helper = SupabaseHelper()
+        self.current_msg_id = None  # TODO: Will be set when running tasks
         self.structure_email_item = LLMTool(
             id="structure_email_item", 
             name="Structure Email Item",
             description="A tool for extracting and structuring email items. In particular, it focuses on identifying and organizing collaboration-related emails.",
-            structured_output_schema=EmailItem)
+            structured_output_schema=SearchColabEmailsResponse
+        )
         self.portia = Portia(
             config=self.config,
-            tools=DefaultToolRegistry(config=self.config)._add([self.structure_email_item]),
+            tools=PortiaToolRegistry(config=self.config),
             execution_hooks=CLIExecutionHooks(),
         )
-
-    def log_after_every_step(self, plan: Plan, plan_run: PlanRun, step: Step, output: Output) -> None:
-        """Log the output of each executed step. Kept small to avoid noisy logs."""
-        try:
-            logger().info(f"Finished step {step.task} with output: {getattr(output, 'summary', repr(output))}")
-        except Exception:
-            logger().exception("Failed to log step output")
 
     def run_task(
         self,
         task: Union[PortiaTask, str], 
         end_user: User,
-        context: Optional[dict] = None
+        context: Optional[dict] = None,
+        msg_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Run a Portia task and return a JSON-serializable result.
 
         If `context` is provided it will be appended to the task prompt to give Portia the
         relevant email text or metadata.
         """
+        logger().info(f"Starting run_task with task: {type(task).__name__ if isinstance(task, PortiaTask) else 'string'}")
+        # Set message ID for logging context
+        self.current_msg_id = msg_id
+        
         if isinstance(task, PortiaTask):
             prompt = task.value
+            logger().info(f"Using PortiaTask enum: {task.name}")
         else:
             prompt = str(task)
+            logger().info("Using string task prompt")
 
         if context:
             prompt = f"{prompt}\n\nContext (User details & preferences):\n{context}"
+            logger().info("Added context to prompt")
 
         try:
+            logger().info("Executing Portia plan")
             plan = self.portia.run(
                 prompt,
                 # TODO: uncomment this line
@@ -204,17 +208,24 @@ class PortiaHelper:
                 end_user=EndUser(external_id="255af79e-3ea8-448c-80f2-7470492b8979", email="mayureshchoudhary22@gmail.com")
                 
             )
+            logger().info("Portia plan execution completed successfully")
         except Exception as exc:  # keep broad to capture SDK/runtime errors
             logger().exception("Portia run failed")
             return {"error": "portia_run_failed", "details": str(exc)}
+        finally:
+            # Clear message ID after task completion
+            self.current_msg_id = None
+            logger().info("Cleared message ID context")
 
         # Attempt to extract model output in a safe way
         try:
+            logger().info("Extracting output from plan results")
             return {
                 "value": str(plan.outputs.final_output.value),
                 "summary": str(plan.outputs.final_output.summary)
             }
-        except Exception:
+        except Exception as e:
+            logger().warning(f"Failed to extract plan output: {e}")
             return {"value": None, "summary": None}
 
     def run_search_colab_emails(self, end_user: User, context: dict) -> Dict[str, Any]:
@@ -225,7 +236,7 @@ class PortiaHelper:
             context=context
         )
 
-    def start_colab_process(self, end_user: User, email_text: Dict) -> Dict[str, Any]:
+    def start_colab_process(self, end_user: User, email_text: dict, msg_id: str) -> Dict[str, Any]:
         """Start the collaboration analysis process.
 
         Optionally pass the raw `email_text` (or a short link/summary). The prompt accepts context
@@ -234,6 +245,6 @@ class PortiaHelper:
         return self.run_task(
             PortiaTask.START_COLAB_PROCESS, 
             end_user=end_user,
-            context=email_text
+            context=email_text,
+            msg_id=msg_id
         )
-
