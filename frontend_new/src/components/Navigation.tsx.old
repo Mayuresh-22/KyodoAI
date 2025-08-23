@@ -1,0 +1,125 @@
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+
+const Navigation: React.FC = () => {
+  const location = useLocation();
+  const currentPath = location.pathname;
+
+  return (
+    <nav className="bg-white shadow-lg">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex justify-between h-16">
+          <div className="flex">
+            <Link to="/" className="flex items-center text-orange-500 text-xl font-bold">
+              Kyodo AI
+            </Link>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <Link
+              to="/dashboard"
+              className={`${
+                currentPath === '/dashboard' ? 'text-orange-500' : 'text-gray-500 hover:text-orange-500'
+              } px-3 py-2 text-sm font-medium`}
+            >
+              Dashboard
+            </Link>
+            <Link
+              to="/chatrooms"
+              className={`${
+                currentPath === '/chatrooms' ? 'text-orange-500' : 'text-gray-500 hover:text-orange-500'
+              } px-3 py-2 text-sm font-medium`}
+            >
+              Chat Rooms
+            </Link>
+            {currentPath !== '/login' && currentPath !== '/register' && (
+              <Link
+                to="/login"
+                className="px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-400"
+              >
+                Sign In
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+
+          {/* Dashboard nav item */}
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) => `px-4 py-2 rounded-full font-medium transition-all duration-200 ${
+              isActive
+                ? 'text-orange-500 bg-orange-50'
+                : 'text-gray-600 hover:text-orange-500 hover:bg-orange-50'
+            }`}
+          >
+            Dashboard
+          </NavLink>
+
+          {/* ChatRooms nav item */}
+          <NavLink
+            to="/chatrooms"
+            className={({ isActive }) => `px-4 py-2 rounded-full font-medium transition-all duration-200 ${
+              isActive
+                ? 'text-gray-900 bg-gray-100'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+            }`}
+          >
+            ChatRooms
+          </NavLink>
+
+          {/* User/avatar button with dropdown menu */}
+          <Menu as="div" className="relative">
+            <Menu.Button className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white cursor-pointer hover:bg-orange-600 transition-colors duration-200">
+              <User size={18} />
+            </Menu.Button>
+
+            <Transition
+              as={Fragment}
+              enter="transition ease-out duration-100"
+              enterFrom="transform opacity-0 scale-95"
+              enterTo="transform opacity-100 scale-100"
+              leave="transition ease-in duration-75"
+              leaveFrom="transform opacity-100 scale-100"
+              leaveTo="transform opacity-0 scale-95"
+            >
+              <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                <div className="py-1">
+                  <Menu.Item>
+                    {({ active }: { active: boolean }) => (
+                      <Link
+                        to="/profile"
+                        className={`${
+                          active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                        } block px-4 py-2 text-sm`}
+                      >
+                        Profile Settings
+                      </Link>
+                    )}
+                  </Menu.Item>
+                  <Menu.Item>
+                    {({ active }: { active: boolean }) => (
+                      <button
+                        onClick={handleLogout}
+                        className={`${
+                          active ? 'bg-gray-50 text-gray-900' : 'text-gray-700'
+                        } block w-full text-left px-4 py-2 text-sm`}
+                      >
+                        Sign out
+                      </button>
+                    )}
+                  </Menu.Item>
+                </div>
+              </Menu.Items>
+            </Transition>
+          </Menu>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+export default Navigation;

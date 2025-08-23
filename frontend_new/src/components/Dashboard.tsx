@@ -1,4 +1,7 @@
+// Devangs Changes
 import React from 'react';
+import SparkleField from './SparkleField';
+import HeroOrb from './HeroOrb';
 // ...existing code...
 
 interface DashboardProps {
@@ -7,30 +10,46 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [loading, setLoading] = React.useState(false);
-  const [bubbleAnim, setBubbleAnim] = React.useState(false);
   const [mailsFetched, setMailsFetched] = React.useState(false);
   const handleScanMailBox = () => {
     setLoading(true);
+    // Call Endpoint to get Emails
+    // fetch('http://localhost:8000/search-emails', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({}), // Add payload if needed
+    // })
+    //   .then(response => response.json())
+    //   .then(data => {
+    //     console.log('Returned output:', data);
+    //     // handle data if needed
+    //     // e.g. setDeals(data.deals);
+    //   })
+    //   .catch(error => {
+    //     console.error('Error fetching emails:', error);
+    //   });
+
     setTimeout(() => {
-      setBubbleAnim(true);
-      setTimeout(() => {
-        setLoading(false);
-        setBubbleAnim(false);
-        setMailsFetched(true);
-      }, 1200);
+      setMailsFetched(true);
     }, 1800);
   };
+
+  // Deals data should be fetched from above request
   const [deals, setDeals] = React.useState([
     { id: 1, title: 'Brand Collab with Nike', date: '22 Aug 2025', summary: 'Nike wants to collaborate for a new campaign.', company: 'Nike', budget: '$10,000', status: 'Pending', isActive: false },
     { id: 2, title: 'Influencer Deal with Apple', date: '20 Aug 2025', summary: 'Apple is looking for influencers for iPhone launch.', company: 'Apple', budget: '$15,000', status: 'Active', isActive: true },
     { id: 3, title: 'Sponsorship from Samsung', date: '18 Aug 2025', summary: 'Samsung offers sponsorship for tech event.', company: 'Samsung', budget: '$8,000', status: 'Inactive', isActive: false }
   ]);
+
+
   const [showChat, setShowChat] = React.useState(false);
   const [activeDeal, setActiveDeal] = React.useState<any>(null);
-  const handleToggleAI = (id) => {
+  const handleToggleAI = (id: any) => {
     setDeals(deals => deals.map(deal => deal.id === id ? { ...deal, isActive: !deal.isActive } : deal));
   };
-  const handleDealClick = (deal) => {
+  const handleDealClick = (deal: any) => {
     if (deal.isActive) {
       setActiveDeal(deal);
       setShowChat(true);
@@ -38,19 +57,47 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   };
 
   return (
-  <div className="relative min-h-screen px-6 pb-12 overflow-hidden">
+    <div className="relative min-h-screen px-6 pb-12 overflow-hidden">
+      <SparkleField
+        className="pointer-events-none absolute inset-0 z-20"
+        items={[
+          // Left large sparkle
+          { top: '180px', left: '160px', size: 94, rotate: -8, delay: '0.2s', variant: 'peach', opacity: 0.95 },
+          // Right medium sparkle
+          { top: '210px', right: '200px', size: 54, rotate: 10, delay: '0.8s', variant: 'peach', opacity: 0.9 },
+          // Small accent near orb
+          { top: '300px', left: '360px', size: 40, rotate: 15, delay: '1.4s', variant: 'orange', opacity: 0.85 },
+        ]}
+      />
+      <HeroOrb
+        size={1200}
+        translateY="54%"
+        opacityClass="opacity-80"
+        blurClass="blur-[36px] md:blur-[40px]"
+        zIndexClass="-z-10"
+        blend="normal"
+        className="
+          w-[900px] h-[900px]
+          sm:w-[1000px] sm:h-[1000px]
+          md:w-[1200px] md:h-[1200px]
+        "
+      />
+
+
       {/* Header with Rescan Button */}
       {!mailsFetched && (
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+
+        <div className="flex flex-col items-center justify-center min-h-[60vh] mt-10">
+
+          <h1 className="text-5xl md:text-6xl font-bold font-playfair text-gray-900 mb-6 leading-tight">
             Let's Check what you got there!
           </h1>
-          <p className="text-xl md:text-2xl text-gray-700 mb-12 max-w-3xl mx-auto leading-relaxed">
-            scans through your mail box to find mails<br />related to brand deals!!
+          <p className="text-xl md:text-2xl text-gray-700 mb-12 max-w-xl mx-auto leading-relaxed text-center">
+            scans through your mail box to find mails related to brand deals!!
           </p>
           <button
             onClick={handleScanMailBox}
-            className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-full text-lg font-semibold flex items-center space-x-3 mx-auto transition-all duration-300 button-bounce shadow-xl hover:shadow-2xl"
+            className="bg-black hover:bg-orange-600 text-white px-8 py-4 rounded-full text-lg font-semibold flex items-center space-x-3 mx-auto transition-all duration-300 button-bounce shadow-xl hover:shadow-2xl"
             disabled={loading}
           >
             <img src="/rocket.png" alt="Scan" width={24} height={24} />
@@ -64,39 +111,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               </span>
             )}
           </button>
-          {bubbleAnim && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-              <div className="w-[120vw] h-[120vw] rounded-full bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 opacity-80 animate-bubbleFill" style={{filter:'blur(40px)'}}></div>
-            </div>
-          )}
         </div>
       )}
-      {mailsFetched && (
-        <div>
-          <div className="flex items-center justify-center mb-12">
-            <button className="bg-black text-white px-8 py-4 rounded-full text-lg font-medium flex items-center space-x-3 hover:bg-gray-800 transition-all duration-200 button-bounce">
-              <img src="/rocket.png" alt="Rescan" width={20} height={20} />
-              <span>Rescan Mails</span>
-            </button>
-          </div>
-          {/* Rocket Icon */}
-          <div className="flex justify-start mb-12 ml-12">
-            <div className="rocket-float">
-              <img src="/rocket.png" alt="Rocket" width={64} height={64} />
-            </div>
-          </div>
+      {mailsFetched && (<div>
+        <div className="flex items-center justify-center mb-10 mt-20">
+          <button className="bg-black text-white px-8 py-4 rounded-full text-lg font-medium flex items-center space-x-3 hover:bg-gray-800 transition-all duration-200 button-bounce">
+            <img src="/rocket.png" alt="Rescan" width={20} height={20} />
+            <span>Rescan Mails</span>
+          </button>
         </div>
-      )}
-      {/* Rocket Icon */}
-      <div className="flex justify-start mb-12 ml-12">
-        <div className="rocket-float">
-          <img src="/rocket.png" alt="Rocket" width={64} height={64} />
-        </div>
-      </div>
+      </div>)}
 
       {/* Deal Cards Grid */}
       {mailsFetched && (
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 my-24 relative z-10">
           {deals.map((deal, index) => (
             <div
               key={deal.id}
@@ -120,15 +148,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               </button>
             </div>
           ))}
-        </div>
-      )}
-      {showChat && activeDeal && (
-        <div className="fixed inset-0 z-50 bg-white/90 flex items-center justify-center">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl">
-            <h2 className="text-3xl font-bold mb-4 text-orange-500">Chat Room for {activeDeal.title}</h2>
-            <div className="bg-orange-50 rounded-xl p-4 mb-4">Chat area for this deal...</div>
-            <button className="bg-orange-500 text-white px-6 py-2 rounded-full font-semibold" onClick={() => setShowChat(false)}>Close Chat</button>
-          </div>
         </div>
       )}
     </div>

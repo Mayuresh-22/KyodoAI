@@ -17,4 +17,5 @@ def read_root():
 @app.get("/search-emails")
 def search_emails():
     # Code to search emails
+    
     return {"status": "Email search initiated"}
