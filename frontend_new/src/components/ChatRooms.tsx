@@ -1,5 +1,6 @@
-// Devangs Changes
-import React, { useState } from 'react';
+// Dynamic ChatRooms implementation with Supabase
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
 // Vertical Generation Timeline 
 import Timeline from '@mui/lab/Timeline';
 import TimelineItem from '@mui/lab/TimelineItem';
@@ -15,7 +16,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 
 /**
  * Props:
- * - onNavigate: parent-provided navigation handler (not used here yet, but available)
+ * - onNavigate: parent-provided navigation handler
  */
 interface ChatRoomsProps {
   onNavigate: (page: string) => void;
@@ -31,6 +32,29 @@ interface AIStep {
   status: StepStatus;
 }
 
+interface Message {
+  id?: string;
+  deal_id: string;
+  user_id?: string; 
+  sender: 'user' | 'ai' | 'timeline';
+  content: string;
+  suggested_actions?: Array<{ action_name: string; action_desc: string }>;
+  created_at?: string;
+}
+
+interface Deal {
+  id: string;
+  user_id: string;
+  email_id: string;
+  title: string;
+  company: string;
+  summary: string;
+  budget: string;
+  status: string;
+  is_ai_active: boolean;
+  created_at: string;
+}
+
 /**
  * ChatRooms
  * - Two-pane layout:
@@ -38,81 +62,100 @@ interface AIStep {
  *   2) Right pane: chat header, timeline, messages, and input composer
  */
 const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
-
-  // Deals data: each deal has its own header and messages
-  const deals = [
-    {
-      id: 1,
-      title: 'Deal 1 Title',
-      company: 'Acme Corp',
-      status: 'Pending',
-      header: 'Deal 1 Title',
-      companyName: 'Acme Corp',
-      statusText: 'Pending',
-      messages: [
-        {
-          type: 'ai',
-          text: 'Summary for Deal 1. Choose an option to proceed.',
-          suggested_actions: [
-            { action_name: 'Send Invoice', action_desc: 'Generate and send the Invoice to Acme Corp' },
-          ]
-        }
-      ]
-    },
-    {
-      id: 2,
-      title: 'Deal 2 Title',
-      company: 'Beta LLC',
-      status: 'Negotiation',
-      header: 'Deal 2 Title',
-      companyName: 'Beta LLC',
-      statusText: 'Negotiation',
-      messages: [
-        {
-          type: 'ai',
-          text: 'Summary for Deal 2. Choose an option to proceed.',
-          suggested_actions: [
-            { action_name: 'Send Proposal', action_desc: 'Draft and send proposal to Beta LLC' },
-          ]
-        }
-      ]
-    },
-    {
-      id: 3,
-      title: 'Deal 3 Title',
-      company: 'Gamma Inc',
-      status: 'Closed',
-      header: 'Deal 3 Title',
-      companyName: 'Gamma Inc',
-      statusText: 'Closed',
-      messages: [
-        {
-          type: 'ai',
-          text: 'Summary for Deal 3. Choose an option to proceed.',
-          suggested_actions: [
-            { action_name: 'Archive', action_desc: 'Archive deal with Gamma Inc' },
-          ]
-        }
-      ]
-    }
-  ];
-
-  // Index of the selected deal in the sidebar
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [selectedDeal, setSelectedDeal] = useState(0);
   const [message, setMessage] = useState('');
-  // Each deal has its own messages and timeline state
-  const [dealMessages, setDealMessages] = useState(deals.map(deal => deal.messages));
+  const [dealMessages, setDealMessages] = useState<Message[][]>([]);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  
+  // Default timeline steps
   const defaultTimeline = [
-    { id: 'queue', label: 'Queued', detail: 'Waiting for worker', status: 'pending' },
-    { id: 'analyze', label: 'Analyzing prompt', detail: 'Extracting intent', status: 'pending' },
-    { id: 'retrieve', label: 'Fetching context', detail: 'Searching emails', status: 'pending' },
-    { id: 'generate', label: 'Generating response', detail: 'Planning reply', status: 'pending' },
-    { id: 'stream', label: 'Streaming', detail: 'Sending tokens', status: 'pending' },
+    { id: 'queue', label: 'Queued', detail: 'Waiting for worker', status: 'pending' as StepStatus },
+    { id: 'analyze', label: 'Analyzing prompt', detail: 'Extracting intent', status: 'pending' as StepStatus },
+    { id: 'retrieve', label: 'Fetching context', detail: 'Searching emails', status: 'pending' as StepStatus },
+    { id: 'generate', label: 'Generating response', detail: 'Planning reply', status: 'pending' as StepStatus },
+    { id: 'stream', label: 'Streaming', detail: 'Sending tokens', status: 'pending' as StepStatus },
   ];
-  const [dealTimelines, setDealTimelines] = useState(deals.map(() => defaultTimeline.map(step => ({ ...step }))));
-  const [dealGenerating, setDealGenerating] = useState(deals.map(() => false));
+  
+  const [dealTimelines, setDealTimelines] = useState<AIStep[][]>([]);
+  const [dealGenerating, setDealGenerating] = useState<boolean[]>([]);
 
   const chatAreaRef = React.useRef<HTMLDivElement>(null);
+
+  // Fetch user and AI-active deals and their messages
+  useEffect(() => {
+    const fetchUserAndDeals = async () => {
+      try {
+        // Get current user
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData?.user) {
+          console.error('No user found');
+          setLoading(false);
+          return;
+        }
+        
+        setUser(userData.user);
+        
+        // Fetch AI-active deals
+        const { data: dealsData, error: dealsError } = await supabase
+          .from('deals')
+          .select('*')
+          .eq('user_id', userData.user.id)
+          .eq('is_ai_active', true)
+          .order('created_at', { ascending: false });
+          
+        if (dealsError) {
+          console.error('Error fetching deals:', dealsError);
+          setLoading(false);
+          return;
+        }
+        
+        if (!dealsData || dealsData.length === 0) {
+          setLoading(false);
+          return;
+        }
+        
+        setDeals(dealsData);
+        
+        // Initialize arrays for messages and timelines
+        const messagesArray: Message[][] = [];
+        const timelinesArray: AIStep[][] = [];
+        const generatingArray: boolean[] = [];
+        
+        // Fetch messages for each deal
+        for (const deal of dealsData) {
+          const { data: messagesData, error: messagesError } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('deal_id', deal.id)
+            .order('created_at', { ascending: true });
+            
+          if (messagesError) {
+            console.error(`Error fetching messages for deal ${deal.id}:`, messagesError);
+            messagesArray.push([]);
+          } else {
+            messagesArray.push(messagesData || []);
+          }
+          
+          // Initialize timeline for each deal
+          timelinesArray.push([...defaultTimeline]);
+          generatingArray.push(false);
+        }
+        
+        setDealMessages(messagesArray);
+        setDealTimelines(timelinesArray);
+        setDealGenerating(generatingArray);
+        
+      } catch (error) {
+        console.error('Error in fetchUserAndDeals:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUserAndDeals();
+  }, []);
 
   // Auto-scroll to the latest message whenever current deal's messages change
   React.useEffect(() => {
@@ -121,51 +164,55 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
     }
   }, [dealMessages, selectedDeal]);
 
-
-// ...existing code...
-  // TIMELINE FUNCTIONS - DYNAMIC PER DEAL
-  const renderTimeline = () => (
-    <Timeline sx={{ padding: 0, margin: 0}}>
-      {dealTimelines[selectedDeal].map((step, index) => (
-        <TimelineItem key={step.id} sx={{ minHeight: 60 , "&::before": { display: "none" }}}>
-          <TimelineSeparator>
-            <TimelineDot 
-              color={
-                step.status === 'completed' ? 'success' :
-                step.status === 'active' ? 'primary' :
-                step.status === 'error' ? 'error' : 'grey'
-              }
-              sx={{ 
-                bgcolor: step.status === 'active' ? '#ff6b35' : undefined // Your orange color
-              }}
-            >
-              {step.status === 'active' && (
-                <CircularProgress size={16} sx={{ color: 'white' }} />
+  // TIMELINE FUNCTIONS
+  const renderTimeline = () => {
+    if (!dealTimelines[selectedDeal]) return null;
+    
+    return (
+      <Timeline sx={{ padding: 0, margin: 0}}>
+        {dealTimelines[selectedDeal].map((step, index) => (
+          <TimelineItem key={step.id} sx={{ minHeight: 60 , "&::before": { display: "none" }}}>
+            <TimelineSeparator>
+              <TimelineDot 
+                color={
+                  step.status === 'completed' ? 'success' :
+                  step.status === 'active' ? 'primary' :
+                  step.status === 'error' ? 'error' : 'grey'
+                }
+                sx={{ 
+                  bgcolor: step.status === 'active' ? '#ff6b35' : undefined // Your orange color
+                }}
+              >
+                {step.status === 'active' && (
+                  <CircularProgress size={16} sx={{ color: 'white' }} />
+                )}
+                {step.status === 'completed' && (
+                  <CheckCircleIcon sx={{ fontSize: 16 }} />
+                )}
+                {step.status === 'error' && (
+                  <ErrorIcon sx={{ fontSize: 16 }} />
+                )}
+              </TimelineDot>
+              {index < dealTimelines[selectedDeal].length - 1 && <TimelineConnector />}
+            </TimelineSeparator>
+            <TimelineContent sx={{ py: '12px', px: 2 }}>
+              <div className="text-sm font-medium text-gray-900">{step.label}</div>
+              {step.detail && (
+                <div className="text-xs text-gray-600 mt-1">{step.detail}</div>
               )}
-              {step.status === 'completed' && (
-                <CheckCircleIcon sx={{ fontSize: 16 }} />
-              )}
-              {step.status === 'error' && (
-                <ErrorIcon sx={{ fontSize: 16 }} />
-              )}
-            </TimelineDot>
-            {index < dealTimelines[selectedDeal].length - 1 && <TimelineConnector />}
-          </TimelineSeparator>
-          <TimelineContent sx={{ py: '12px', px: 2 }}>
-            <div className="text-sm font-medium text-gray-900">{step.label}</div>
-            {step.detail && (
-              <div className="text-xs text-gray-600 mt-1">{step.detail}</div>
-            )}
-          </TimelineContent>
-        </TimelineItem>
-      ))}
-    </Timeline>
-  );
+            </TimelineContent>
+          </TimelineItem>
+        ))}
+      </Timeline>
+    );
+  };
 
   // Timeline step helpers per deal
   const advanceStep = (stepId: string, status: StepStatus = 'active') => {
     setDealTimelines(prev => {
       const updated = [...prev];
+      if (!updated[selectedDeal]) return prev;
+      
       updated[selectedDeal] = updated[selectedDeal].map(step => {
         if (step.id === stepId) {
           return { ...step, status };
@@ -187,12 +234,39 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
     });
   };
 
+  // Save message to Supabase
+  const saveMessageToSupabase = async (message: Message) => {
+    if (!user) return;
+    
+    try {
+      const messageWithUser = {
+        ...message,
+        user_id: user.id,
+        created_at: new Date().toISOString() // Ensure created_at is set
+      };
+      
+      // Insert the message
+      const { error } = await supabase
+        .from('messages')
+        .insert([messageWithUser]);
+        
+      if (error) {
+        console.error('Error saving message:', error);
+      }
+    } catch (error) {
+      console.error('Error in saveMessageToSupabase:', error);
+    }
+  };
+
   const simulateAIProgress = async () => {
+    if (!deals[selectedDeal]) return;
+    
     setDealGenerating(prev => {
       const updated = [...prev];
       updated[selectedDeal] = true;
       return updated;
     });
+    
     resetSteps();
 
     // Add timeline as a "message" in the chat
@@ -200,7 +274,11 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
       const updated = [...prev];
       updated[selectedDeal] = [
         ...updated[selectedDeal],
-        { type: 'timeline', text: '', suggested_actions: [] }
+        { 
+          deal_id: deals[selectedDeal].id, 
+          sender: 'timeline', 
+          content: '' 
+        }
       ];
       return updated;
     });
@@ -230,36 +308,53 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
       return updated;
     });
 
+    // Get details about the selected deal for better AI response
+    const deal = deals[selectedDeal];
+    
+    // Prepare AI response content with deal-specific information
+    const aiResponseContent = [
+      `Based on your query about the deal with ${deal.company}, here are the key points:`,
+      `- This is a ${deal.status.toLowerCase()} collaboration for ${deal.budget ? '$' + deal.budget : 'an undisclosed amount'}`,
+      `- ${deal.summary}`,
+      '',
+      'Would you like me to draft a response email or prepare any other content for this deal?'
+    ].join('\n');
+    
+    // Suggested actions
+    const suggestedActions = [
+      {
+        action_name: 'Send Acknowledgement',
+        action_desc: `Draft and send initial acknowledgment to ${deal.company}`
+      },
+      {
+        action_name: 'Finalize Deal',
+        action_desc: `Draft terms for finalizing the deal with ${deal.company}`
+      }
+    ];
+
+    // Create new AI message
+    const newMessage: Message = {
+      deal_id: deals[selectedDeal].id,
+      sender: 'ai',
+      content: aiResponseContent,
+      suggested_actions: suggestedActions
+    };
+    
+    // Save to Supabase (outside the state update callback)
+    await saveMessageToSupabase(newMessage);
+
     // Remove timeline message and add AI response
     setDealMessages(prev => {
       const updated = [...prev];
-      const withoutTimeline = updated[selectedDeal].filter(msg => msg.type !== 'timeline');
+      const withoutTimeline = updated[selectedDeal].filter(msg => msg.sender !== 'timeline');
+      
       updated[selectedDeal] = [
         ...withoutTimeline,
-        {
-          type: 'ai',
-          text: [
-            'Based on your query, here are the key points I found:',
-            '- Sample insight 1 from email analysis',
-            '- Sample insight 2 from deal context',
-            '- Recommended action: Send follow-up email',
-            '',
-            'Would you like me to draft a response email?'
-          ].join('\n'),
-          suggested_actions: [
-            {
-              action_name: 'Send Acknolwedgement',
-              action_desc: 'Draft and Send Initial Acknolwedgment Mail to the Brand'
-            },
-            {
-              action_name: 'Finalize',
-              action_desc: 'Draft and Send Deal Finalization Mail to the Brand'
-            }
-          ]
-        }
+        newMessage
       ];
       return updated;
     });
+    
     setDealGenerating(prev => {
       const updated = [...prev];
       updated[selectedDeal] = false;
@@ -268,25 +363,73 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
   };
 
   // Send message for selected deal
-  const handleSendMessage = (user_query: any) => {
-    if (user_query.trim()) {
+  const handleSendMessage = async (userQuery: string) => {
+    if (!userQuery.trim() || deals.length === 0) return;
+    
+    try {
+      // Create user message
+      const userMessage: Message = {
+        deal_id: deals[selectedDeal].id,
+        user_id: user?.id,
+        sender: 'user',
+        content: userQuery
+      };
+      
+      // Update UI optimistically
       setDealMessages(prev => {
         const updated = [...prev];
         updated[selectedDeal] = [
           ...updated[selectedDeal],
-          { type: 'user', text: user_query, suggested_actions: [] }
+          userMessage
         ];
         return updated;
       });
+      
       setMessage('');
+      
+      // Save user message to Supabase
+      await saveMessageToSupabase(userMessage);
+      
       // Start AI generation process (timeline)
       simulateAIProgress();
+    } catch (error) {
+      console.error('Error sending message:', error);
     }
   };
 
-  // Render
+  // Render loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <CircularProgress size={40} sx={{ color: '#ff6b35' }} />
+          <div className="mt-4 text-gray-600">Loading conversations...</div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Render empty state if no deals
+  if (deals.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md p-8 bg-white rounded-2xl shadow-lg">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">No Active Deals</h2>
+          <p className="text-gray-600 mb-6">
+            You don't have any active AI conversations. Go to your dashboard and activate AI for some deals to start chatting.
+          </p>
+          <button
+            onClick={() => onNavigate('dashboard')}
+            className="bg-orange-500 text-white px-6 py-2 rounded-full font-medium hover:bg-orange-600 transition-colors"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   const currentDeal = deals[selectedDeal];
-  const currentMessages = dealMessages[selectedDeal];
 
   return (
     <div className="min-h-screen flex overflow-hidden">
@@ -324,10 +467,10 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
         {/* Header */}
         <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 p-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-gray-900">{currentDeal.header}</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{currentDeal.title}</h1>
             <div className="flex items-center space-x-8">
-              <span className="font-semibold text-gray-700">{currentDeal.companyName}</span>
-              <span className="text-gray-600">{currentDeal.statusText}</span>
+              <span className="font-semibold text-gray-700">{currentDeal.company}</span>
+              <span className="text-gray-600">{currentDeal.status}</span>
             </div>
           </div>
         </div>
@@ -337,59 +480,74 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
           className="flex-1 p-6 bg-gray-50 overflow-y-auto space-y-4"
           style={{ minHeight: '400px', maxHeight: 'calc(100vh - 190px)' }}
         >
-          {currentMessages.length === 0 ? (
-            <div className="flex items-center h-full">
-              <div className="text-center text-gray-500">
-                <div className="text-lg font-medium mb-2">Start a conversation</div>
-                <div className="text-sm">Send a message to begin chatting with AI</div>
+          {/* Show deal info message at start of conversation */}
+          {(!dealMessages[selectedDeal] || dealMessages[selectedDeal].length === 0) && (
+            <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
+              <div className="flex items-start space-x-3 mb-2">
+                <img src="/stars.svg" alt="Assistant" className="mt-1" width={20} height={20} />
+                <div className="flex-1">
+                  <p className="text-gray-800 leading-relaxed mb-1">
+                    Welcome to your chat about the deal with {currentDeal.company}.
+                  </p>
+                  <p className="text-gray-800 leading-relaxed mb-1">
+                    This is a {currentDeal.status.toLowerCase()} deal with a budget of ${currentDeal.budget}.
+                  </p>
+                  <p className="text-gray-800 leading-relaxed mb-3">
+                    {currentDeal.summary}
+                  </p>
+                  <p className="text-gray-800 leading-relaxed">
+                    How can I help you with this collaboration?
+                  </p>
+                </div>
               </div>
             </div>
-          ) : (
-            currentMessages.map((msg, idx) => {
-              if (msg.type === 'timeline') {
-                // Timeline message: shows AI generation progress
-                return (
-                  <div key={idx} className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                    <div className="text-sm font-medium text-gray-700 mb-3">🤖 AI Generation Progress</div>
-                    {renderTimeline()}
-                  </div>
-                );
-              } else if (msg.type === 'ai') {
-                return (
-                  <div key={idx} className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
-                    <div className="flex items-start space-x-3 mb-2">
-                      <img src="/stars.svg" alt="Assistant" className="mt-1" width={20} height={20} />
-                      <div className="flex-1">
-                        {msg.text.split('\n').map((line, i) => (
-                          <p key={i} className="text-gray-800 leading-relaxed mb-1">{line}</p>
-                        ))}
-                        {Array.isArray(msg.suggested_actions) && msg.suggested_actions.length > 0 && (
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {msg.suggested_actions.map((action: { action_name: string , action_desc:string}, i: number) => (
-                              <button
-                                key={i}
-                                className="border-2 border-dashed border-orange-400 rounded-full px-4 py-2 text-orange-700 bg-white font-semibold text-sm hover:bg-orange-50 transition"
-                                type="button"
-                                onClick={() => handleSendMessage(action.action_desc)}
-                              >
-                                {action.action_name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+          )}
+          
+          {/* Render existing messages */}
+          {dealMessages[selectedDeal] && dealMessages[selectedDeal].map((msg, idx) => {
+            if (msg.sender === 'timeline') {
+              // Timeline message: shows AI generation progress
+              return (
+                <div key={idx} className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+                  <div className="text-sm font-medium text-gray-700 mb-3">🤖 AI Generation Progress</div>
+                  {renderTimeline()}
+                </div>
+              );
+            } else if (msg.sender === 'ai') {
+              return (
+                <div key={idx} className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
+                  <div className="flex items-start space-x-3 mb-2">
+                    <img src="/stars.svg" alt="Assistant" className="mt-1" width={20} height={20} />
+                    <div className="flex-1">
+                      {msg.content.split('\n').map((line, i) => (
+                        <p key={i} className="text-gray-800 leading-relaxed mb-1">{line}</p>
+                      ))}
+                      {Array.isArray(msg.suggested_actions) && msg.suggested_actions.length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {msg.suggested_actions.map((action, i) => (
+                            <button
+                              key={i}
+                              className="border-2 border-dashed border-orange-400 rounded-full px-4 py-2 text-orange-700 bg-white font-semibold text-sm hover:bg-orange-50 transition"
+                              type="button"
+                              onClick={() => handleSendMessage(action.action_desc)}
+                            >
+                              {action.action_name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                );
-              } else {
-                return (
-                  <div key={idx} className="bg-gray-200 border border-gray-200 rounded-2xl p-6 flex items-start space-x-3">
-                    <p className="text-gray-800">{msg.text}</p>
-                  </div>
-                );
-              }
-            })
-          )}
+                </div>
+              );
+            } else {
+              return (
+                <div key={idx} className="bg-gray-200 border border-gray-200 rounded-2xl p-6 flex items-start space-x-3">
+                  <p className="text-gray-800">{msg.content}</p>
+                </div>
+              );
+            }
+          })}
         </div>
         {/* User Input */}
         <div className="p-6 bg-white border-t border-gray-200">
@@ -400,7 +558,7 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
                   type="text"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="User Query"
+                  placeholder="Type your message..."
                   className="w-full bg-black text-white px-6 py-4 rounded-full text-lg focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder-gray-400"
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage(message)}
                   aria-label="Type a message"
