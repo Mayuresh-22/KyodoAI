@@ -1,7 +1,8 @@
-from os import stat
+import os
 from typing import Optional
 import uuid
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 from supabase_auth import User
@@ -21,35 +22,23 @@ logger = logging.getLogger(__name__)
 
 load_dotenv(override=True)
 
-# Try to import Supabase client
-try:
-    from supabase import create_client, Client
-    # Initialize Supabase client if env vars are set
-    SUPABASE_URL = os.getenv('SUPABASE_URL')
-    SUPABASE_KEY = os.getenv('SUPABASE_KEY')
-    
-    if SUPABASE_URL and SUPABASE_KEY:
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    else:
-        print("WARNING: Supabase credentials not found. Using mock data only.")
-        supabase = None
-except ImportError:
-    print("WARNING: Supabase Python client not installed. Using mock data only.")
-    supabase = None
-
 app = FastAPI()
 
 # Add CORS middleware
+origins = [
+    "http://localhost:5173",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For production, specify your frontend domain
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-print("FastAPI application started")
 # Add the authentication middleware
-# app.add_middleware(AuthMiddleware)
+app.add_middleware(AuthMiddleware)
+
+print("FastAPI application started")
 
 # Models
 class EmailSearchRequest(BaseModel):
@@ -60,13 +49,12 @@ class EmailSearchRequest(BaseModel):
 def search_emails(request: Request):
     logger.info("Starting search-emails endpoint")
     user: Optional[User] = getattr(request.state, "user", None)
-    # TODO: uncomment following two comments
-    # if not user or not getattr(user, "id", None):
-    #     return JSONResponse(status_code=401, content={"detail": "User not authenticated"})
+    if not user or not getattr(user, "id", None):
+        return JSONResponse(status_code=401, content={"detail": "User not authenticated"})
 
     logger.info("Initializing Supabase helper")
     supabase = SupabaseHelper()
-    user_id = "255af79e-3ea8-448c-80f2-7470492b8979"  # TODO: replace this with actual user id from req state
+    user_id = str(user.id)  # Use actual authenticated user ID
     logger.info(f"Fetching profile for user_id: {user_id}")
     profile_resp = supabase.client.table("profiles").select(
         "email, min_budget, max_budget, content_niche, auto_generate_invoice, guidelines"
@@ -152,7 +140,11 @@ class StartProcessRequest(BaseModel):
 @app.post("/start-process")
 def start_colab_process(request: Request, body: StartProcessRequest):
     logger.info("Starting start-process endpoint")
-    user_id = "255af79e-3ea8-448c-80f2-7470492b8979"  # Use the same test user id
+    user: Optional[User] = getattr(request.state, "user", None)
+    if not user or not getattr(user, "id", None):
+        return JSONResponse(status_code=401, content={"detail": "User not authenticated"})
+        
+    user_id = str(user.id)  # Use actual authenticated user ID
     msg_id = str(uuid.uuid4())
 
     # Initialize Supabase helper
@@ -208,7 +200,7 @@ def start_colab_process(request: Request, body: StartProcessRequest):
     
     # Use the updated method signature with user preferences
     result = portia_helper.run_start_colab_process(
-        end_user=None,  # TODO: Replace with actual user object if needed
+        end_user=user,  # Use actual authenticated user object
         email_data=email,
         user_preferences=profile_dict,
         msg_id=msg_id

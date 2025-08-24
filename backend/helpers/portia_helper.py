@@ -231,10 +231,7 @@ class PortiaHelper:
             logger().info("Executing Portia plan")
             plan = self.portia.run(
                 prompt,
-                # TODO: uncomment this line
-                # end_user=EndUser(external_id=end_user.id, email=str(end_user.email))
-                end_user=EndUser(external_id="255af79e-3ea8-448c-80f2-7470492b8979", email="mayureshchoudhary22@gmail.com")
-                
+                end_user=EndUser(external_id=str(end_user.id), email=str(end_user.email)) if end_user else EndUser(external_id="anonymous", email="anonymous@example.com")
             )
             logger().info("Portia plan execution completed successfully")
         except Exception as exc:  # keep broad to capture SDK/runtime errors
@@ -248,13 +245,21 @@ class PortiaHelper:
         # Attempt to extract model output in a safe way
         try:
             logger().info("Extracting output from plan results")
-            return {
-                "value": str(plan.outputs.final_output.value),
-                "summary": str(plan.outputs.final_output.summary)
-            }
+            if hasattr(plan.outputs, 'final_output') and plan.outputs.final_output:
+                final_output = plan.outputs.final_output
+                value = getattr(final_output, 'value', None)
+                summary = getattr(final_output, 'summary', None)
+                
+                return {
+                    "value": value if value is not None else "",
+                    "summary": str(summary) if summary is not None else ""
+                }
+            else:
+                logger().warning("No final output found in plan results")
+                return {"value": "", "summary": ""}
         except Exception as e:
             logger().warning(f"Failed to extract plan output: {e}")
-            return {"value": None, "summary": None}
+            return {"value": "", "summary": ""}
 
     def run_search_colab_emails(self, end_user: User, context: dict) -> Dict[str, Any]:
         """Search collaboration emails using manual plan with Gmail integration."""
@@ -322,7 +327,7 @@ class PortiaHelper:
             plan_run = self.portia.run_plan(
                 plan,
                 plan_run_inputs={"context": context},
-                end_user=EndUser(external_id="255af79e-3ea8-448c-80f2-7470492b8979", email="mayureshchoudhary22@gmail.com")
+                end_user=EndUser(external_id=str(end_user.id), email=str(end_user.email)) if end_user else EndUser(external_id="anonymous", email="anonymous@example.com")
             )
             
             logger().info("Manual plan execution completed successfully")
@@ -429,7 +434,7 @@ class PortiaHelper:
                     "email_data": email_data,
                     "user_preferences": user_preferences
                 },
-                end_user=EndUser(external_id="255af79e-3ea8-448c-80f2-7470492b8979", email="mayureshchoudhary22@gmail.com")
+                end_user=EndUser(external_id=str(end_user.id), email=str(end_user.email)) if end_user else EndUser(external_id="anonymous", email="anonymous@example.com")
             )
             
             logger().info("Manual plan execution completed successfully")
