@@ -12,8 +12,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         super().__init__(app)
         self.supabase_helper = SupabaseHelper()
+        self.cors_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Refresh-Token",
+        }
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        if request.method == "OPTIONS":
+            return JSONResponse(status_code=200, content={"detail": "OK"}, headers=self.cors_headers)
+
         auth_header = request.headers.get("Authorization")
         refresh_token = request.headers.get("X-Refresh-Token")
         if not auth_header:
@@ -38,18 +46,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
         Returns:
             dict: User information if token is valid
         """
-        try:
-            if not jwt_token:
-                return None
-            db_user = self.supabase_helper.client.auth.get_user(jwt_token)
-            if not db_user or not db_user.user:
-                return None
-            # Check expiration
-            exp = self.supabase_helper.client.auth._decode_jwt(jwt_token).get("exp")
-            if exp:
-                curr_epoch = int(datetime.now().timestamp())
-                if exp < curr_epoch:
-                    return None
-            return db_user.user if db_user else None
-        except Exception:
+        # try:
+        if not jwt_token:
             return None
+        db_user = self.supabase_helper.client.auth.get_user(jwt_token)
+        if not db_user or not db_user.user:
+            return None
+        return db_user.user if db_user else None
+        # except Exception:
+        #     return None
