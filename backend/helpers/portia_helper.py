@@ -10,6 +10,9 @@ from portia import (
     PortiaToolRegistry,
     StorageClass,
     logger,
+    PlanBuilderV2,
+    StepOutput,
+    Input,
 )
 from portia.cli import CLIExecutionHooks
 from portia.end_user import EndUser
@@ -155,7 +158,7 @@ class PortiaHelper:
         load_dotenv(override=True)
 
         self.config = Config.from_default(
-            default_model="gemini-2.5-flash-lite", 
+            default_model="google/gemini-2.0-flash", 
             storage_class=storage_class
         )
         self.supabase_helper = SupabaseHelper()
@@ -229,12 +232,97 @@ class PortiaHelper:
             return {"value": None, "summary": None}
 
     def run_search_colab_emails(self, end_user: User, context: dict) -> Dict[str, Any]:
-        """Convenience wrapper for searchning collaboration emails (30d)."""
-        return self.run_task(
-            PortiaTask.SEARCH_COLAB_EMAILS,
-            end_user=end_user,
-            context=context
-        )
+        """Search collaboration emails using manual plan with Gmail integration."""
+        logger().info("Starting manual plan for search collaboration emails")
+        
+        try:
+            # Build manual plan for searching collaboration emails
+            plan = (
+                PlanBuilderV2("Search collaboration emails from last 30 days")
+                .input(
+                    name="context", 
+                    description="End user details and preferences and other context"
+                )
+                .llm_step(
+                    task="Generate an optimized Gmail search query for collaboration emails from the last 30 days. Focus on terms like collaboration, partnership, sponsorship, brand deal, influencer. Include date filter for last 30 days (after:2025/07/25) and exclude spam/promotional emails.",
+                    inputs=[Input("context")]
+                )
+                .invoke_tool_step(
+                    tool="portia:google:gmail:search_email",
+                    args={
+                        "query": StepOutput(0)
+                    }
+                )
+                .llm_step(
+                    task="Analyze the email search results and filter out only genuine collaboration, brand deal, or partnership requests. Exclude newsletters, automated emails, and emails where the user is the sender. Focus on emails with explicit intent to propose deals or collaborations. PERSIST THE INFORMATION ABOUT THE EMAILS.",
+                    inputs=[StepOutput(1), Input("context")]
+                )
+                .llm_step(
+                    task="""Structure the filtered collaboration emails into the required JSON schema with all fields: email_id, from_name, from_email, subject, snippet, received_at, thread_link, labels, tags, relevance_score, confidence, first_received, last_received, ui_actions, notes, and summary statistics. Structure the output as a list of email items like this: {
+                        "emails": [
+                            {
+                                "email_id": "string", # unique id of the email received from google's search email tool
+                                "from_name": "string",
+                                "from_email": "string",
+                                "subject": "string",
+                                "snippet": "string", # short text preview (1-2 lines)
+                                "received_at": "ISO8601 string",
+                                "thread_link": "string (permalink)",
+                                "labels": ["brand","offer","sponsored","negotiation"],
+                                "tags": ["optional category tags"],
+                                "relevance_score": 0-1, # how likely this is a colab offer
+                                "confidence": 0-1, # model confidence in parsing
+                                "first_received": "ISO8601 string",
+                                "last_received": "ISO8601 string",
+                                "ui_actions": ["start_colab_process"],
+                                "notes": "string (optional parsed notes)"
+                            }
+                        ],
+                        "summary": {
+                            "total_found": 0,
+                            "by_label": { "brand": 0, "offer": 0, "sponsored": 0 },
+                            "top_senders": [{ "email": "", "count": 0 }]
+                        }
+                    }""",
+                    inputs=[StepOutput(1), StepOutput(2), Input("context")],
+                )
+                .final_output(
+                    output_schema=SearchColabEmailsResponse,
+                    summarize=True
+                )
+                .build()
+            )
+            
+            logger().info("Executing manual plan for collaboration email search")
+            plan_run = self.portia.run_plan(
+                plan,
+                plan_run_inputs={"context": context},
+                end_user=EndUser(external_id="255af79e-3ea8-448c-80f2-7470492b8979", email="mayureshchoudhary22@gmail.com")
+            )
+            
+            logger().info("Manual plan execution completed successfully")
+            
+            # Try to extract the output safely
+            try:
+                if hasattr(plan_run.outputs, 'final_output') and plan_run.outputs.final_output:
+                    final_output = plan_run.outputs.final_output
+                    value = getattr(final_output, 'value', None)
+                    summary = getattr(final_output, 'summary', None)
+                    
+                    return {
+                        "value": value if value is not None else "",
+                        "summary": str(summary) if summary is not None else ""
+                    }
+                else:
+                    logger().warning("No final output found in plan results")
+                    return {"value": "", "summary": ""}
+            except Exception as extract_error:
+                logger().warning(f"Failed to extract plan output: {extract_error}")
+                return {"value": "", "summary": ""}
+            
+        except Exception as exc:
+            logger().exception("Manual plan execution failed")
+            return {"error": "manual_plan_failed", "details": str(exc)}
 
     def start_colab_process(self, end_user: User, email_text: dict, msg_id: str) -> Dict[str, Any]:
         """Start the collaboration analysis process.
