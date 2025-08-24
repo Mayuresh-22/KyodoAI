@@ -59,7 +59,7 @@ class TemporaryContract(BaseModel):
     milestones: List[str]
     timeline: str
     acceptance_criteria: List[str]
-    basic_clauses: Dict[str, str]  # IP, termination, exclusivity
+    basic_clauses: str  # IP, termination, exclusivity
 
 class StartColabProcessResponse(BaseModel):
     email_parsed: EmailParsed
