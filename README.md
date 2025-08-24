@@ -108,7 +108,7 @@ backend/
 
 ### Frontend Application
 ```
-frontend_new/
+frontend_new/                     # Main frontend directory (NOT frontend_dev)
 ├── src/
 │   ├── components/
 │   │   ├── Dashboard.tsx        # Collaboration overview and AI activation
@@ -283,23 +283,91 @@ npm run dev
 
 ### Production Backend
 ```bash
+cd backend
+
 # Docker deployment
 docker build -t kyodoai-backend .
 docker run -p 8000:8000 kyodoai-backend
 
 # Or traditional deployment
 pip install -r requirements.txt
-gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker
+gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --host 0.0.0.0 --port 8000
 ```
 
 ### Production Frontend
 ```bash
+cd frontend_new
+
 # Build for production
 npm run build
 
-# Deploy to Vercel/Netlify
-npm run deploy
+# Deploy to Vercel (recommended)
+# 1. Connect your GitHub repo to Vercel
+# 2. Set Root Directory to: frontend_new
+# 3. Build Command: npm run build
+# 4. Output Directory: dist
+# 5. Install Command: npm install
+
+# Deploy to Netlify
+# 1. Connect your GitHub repo to Netlify
+# 2. Set Base directory to: frontend_new
+# 3. Build command: npm run build
+# 4. Publish directory: frontend_new/dist
+
+# Deploy to Cloudflare Pages
+# 1. Connect your GitHub repo to Cloudflare Pages
+# 2. Set Build output directory to: frontend_new/dist
+# 3. Set Root directory to: frontend_new
+# 4. Build command: npm run build
+
+# Manual deployment
+npm run build
+# Upload dist/ folder to your hosting provider
 ```
+
+### Environment Variables for Production
+
+#### Backend (.env)
+```bash
+PORTIA_API_KEY=your_production_portia_key
+SUPABASE_URL=your_production_supabase_url
+SUPABASE_ANON_KEY=your_production_supabase_key
+GMAIL_CLIENT_ID=your_gmail_oauth_client_id
+GMAIL_CLIENT_SECRET=your_gmail_oauth_secret
+ENVIRONMENT=production
+```
+
+#### Frontend (.env)
+```bash
+VITE_SUPABASE_URL=your_production_supabase_url
+VITE_SUPABASE_ANON_KEY=your_production_supabase_key
+VITE_API_BASE_URL=https://your-backend-url.com
+```
+
+### Deployment Troubleshooting
+
+#### Common Issues
+
+**1. Build Error: "Could not read package.json" or "Cannot find cwd"**
+- Ensure your build system is pointing to the `frontend_new` directory (NOT frontend_dev)
+- For Vercel: Set "Root Directory" to `frontend_new`
+- For Netlify: Set "Base directory" to `frontend_new`
+- For Cloudflare Pages: Set "Build output directory" to `frontend_new/dist`
+- Verify the correct directory name in your deployment configuration
+
+**2. Environment Variables Not Loading**
+- Verify environment variables are set in your hosting platform
+- Frontend variables must be prefixed with `VITE_`
+- Backend variables should match your `.env.example` file
+
+**3. CORS Issues in Production**
+- Update CORS origins in `backend/main.py` to include your frontend domain
+- Ensure API base URL is correctly configured in frontend
+
+**4. Database Connection Issues**
+- Verify Supabase URL and keys are correct
+- Ensure Row Level Security (RLS) is properly configured
+- Check that all required tables exist in production database
 
 ## Contributing
 
