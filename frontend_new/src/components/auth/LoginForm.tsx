@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 
 interface LoginData {
@@ -10,6 +11,8 @@ interface LoginData {
 
 export const LoginForm: React.FC = () => {
   const { setAuthMode } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loginData, setLoginData] = useState<LoginData>({
@@ -18,7 +21,8 @@ export const LoginForm: React.FC = () => {
     rememberMe: false
   });
 
-  const { setCurrentPage } = useAuth();
+  // Get the intended destination from location state, default to dashboard
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +40,8 @@ export const LoginForm: React.FC = () => {
       if (data.user) {
         // Store user in local storage or context if needed
         console.log('Login successful:', data.user);
-        setCurrentPage('dashboard');
+        // Redirect to the intended page or dashboard
+        navigate(from, { replace: true });
       }
     } catch (err: any) {
       console.error('Login error:', err);

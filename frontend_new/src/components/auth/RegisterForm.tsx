@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 
 interface FormData {
@@ -28,6 +29,8 @@ const contentNiches = [
 
 export const RegisterForm: React.FC = () => {
   const { setAuthMode } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
@@ -41,7 +44,8 @@ export const RegisterForm: React.FC = () => {
     guidelines: ''
   });
 
-  const { setCurrentPage } = useAuth();
+  // Get the intended destination from location state, default to dashboard
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +87,7 @@ export const RegisterForm: React.FC = () => {
 
         // Registration successful
         console.log('Registration successful:', authData.user);
-        setCurrentPage('dashboard');
+        navigate(from, { replace: true });
       }
     } catch (err: any) {
       console.error('Registration error:', err);

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from
 import './App.css';
 import Navigation from './components/Navigation';
 import { AuthProvider } from './components/auth/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import Auth from './components/auth/Auth';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
@@ -35,9 +36,30 @@ const AppContent = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<Auth />} />
           <Route path="/register" element={<Auth />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/chatrooms" element={<ChatRoomsPage />} />
-          <Route path="/chatrooms/:email_id" element={<ChatRoomsPage />} />
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/chatrooms" 
+            element={
+              <ProtectedRoute>
+                <ChatRoomsPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/chatrooms/:email_id" 
+            element={
+              <ProtectedRoute>
+                <ChatRoomsPage />
+              </ProtectedRoute>
+            } 
+          />
         </Routes>
       </div>
     </AuthProvider>
