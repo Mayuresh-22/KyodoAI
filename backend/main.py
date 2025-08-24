@@ -186,7 +186,7 @@ def start_colab_process(request: Request, body: StartProcessRequest):
     logger.info("Running start collaboration process task")
     
     # Use the updated method signature with user preferences
-    result = portia_helper.start_colab_process(
+    result = portia_helper.run_start_colab_process(
         end_user=None,  # TODO: Replace with actual user object if needed
         email_data=email,
         user_preferences=profile_dict,
@@ -199,7 +199,31 @@ def start_colab_process(request: Request, body: StartProcessRequest):
     _status = "success"
     action_type = "final_start_colab_process"
 
+    # Handle case where value is a string (fallback parsing)
+    if isinstance(_value, str):
+        logger.info("Value is string, attempting to parse JSON from markdown")
+        try:
+            # Try to extract JSON from markdown code blocks
+            match = re.search(r"```json\s*([\s\S]*?)\s*```", _value.strip())
+            if match:
+                value_clean = match.group(1).strip()
+                logger.info("Found JSON code block, extracted content")
+            else:
+                value_clean = _value.strip()
+                logger.info("No JSON code block found, using raw value")
+            
+            # Parse the JSON string
+            parsed_json = json.loads(value_clean)
+            logger.info("Successfully parsed JSON from string value")
+            _value = parsed_json  # Use the parsed JSON directly
+        except Exception as e:
+            logger.error(f"Failed to parse JSON from string value: {e}")
+            _value = None
+
     if not _value:
+        logger.warning("No valid collaboration analysis data found")
+        _status = "error"
+        action_type = "error"
         logger.warning("No valid collaboration analysis data found")
         _status = "error"
         action_type = "error"
@@ -223,8 +247,15 @@ def start_colab_process(request: Request, body: StartProcessRequest):
         return JSONResponse(status_code=404, content={"detail": "No valid collaboration analysis data found", "status": _status})
 
     try:
-        value_json = _value.model_dump()
-        logger.info("Successfully extracted structured collaboration analysis response")
+        # Handle both structured response and parsed JSON
+        if isinstance(_value, dict):
+            # If it's already a dict (from fallback parsing), use it directly
+            value_json = _value
+            logger.info("Using parsed JSON dictionary directly")
+        else:
+            # If it's a structured response object, dump it
+            value_json = _value.model_dump()
+            logger.info("Successfully extracted structured collaboration analysis response")
         
         # Save successful action to database
         logger.info("Saving successful action to database")
