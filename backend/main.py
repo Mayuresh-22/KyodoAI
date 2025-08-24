@@ -27,6 +27,7 @@ app = FastAPI()
 # Add CORS middleware
 origins = [
     "http://localhost:5173",
+    "https://kyodoai.pages.dev"
 ]
 app.add_middleware(
     CORSMiddleware,
