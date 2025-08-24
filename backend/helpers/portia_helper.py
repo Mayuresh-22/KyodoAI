@@ -349,7 +349,7 @@ class PortiaHelper:
             logger().exception("Manual plan execution failed")
             return {"error": "manual_plan_failed", "details": str(exc)}
 
-    def start_colab_process(
+    def run_start_colab_process(
         self, 
         end_user: Optional[User], 
         email_data: dict, 
@@ -413,7 +413,7 @@ class PortiaHelper:
                 )
                 .llm_step(
                     task="Structure all outputs into the final JSON schema including email_parsed, analysis, next_action, confidence_score, suggested_reply, contract details, clarifying questions, autonomous actions (calendar event), assumptions, and next steps.",
-                    inputs=[StepOutput(0), StepOutput(1), StepOutput(2), StepOutput(3), StepOutput(4)]
+                    inputs=[StepOutput(0), StepOutput(1), StepOutput(2), StepOutput(3), StepOutput(4), Input("user_preferences"), Input("email_data")]
                 )
                 .final_output(
                     output_schema=StartColabProcessResponse,
