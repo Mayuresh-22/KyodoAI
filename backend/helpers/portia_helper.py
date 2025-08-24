@@ -159,6 +159,7 @@ class PortiaHelper:
         self,
         llm_provider: LLMProvider = LLMProvider.GOOGLE,
         storage_class: StorageClass = StorageClass.MEMORY,
+        supabase_helper: Optional[SupabaseHelper] = None,
     ) -> None:
         load_dotenv(override=True)
 
@@ -168,14 +169,8 @@ class PortiaHelper:
             default_model="google/gemini-2.0-flash", 
             storage_class=storage_class
         )
-        self.supabase_helper = SupabaseHelper()
+        self.supabase_helper = supabase_helper or SupabaseHelper()
         self.current_msg_id = None  # TODO: Will be set when running tasks
-        self.structure_email_item = LLMTool(
-            id="structure_email_item", 
-            name="Structure Email Item",
-            description="A tool for extracting and structuring email items. In particular, it focuses on identifying and organizing collaboration-related emails.",
-            structured_output_schema=SearchColabEmailsResponse
-        )
         self.portia = Portia(
             config=self.config,
             tools=PortiaToolRegistry(config=self.config),

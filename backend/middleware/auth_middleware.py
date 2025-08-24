@@ -33,7 +33,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
             user = self.verify_token(token, refresh_token)
             if not user:
                 return JSONResponse(status_code=401, content={"detail": "Invalid or expired token", "refresh_token": refresh_token})
+
+            _session = self.supabase_helper.client.auth.set_session(token, refresh_token)
+            print(_session.session.model_dump() if _session.session else "No session found")
+
             request.state.user = user
+            request.state.supabase_helper = self.supabase_helper
         except Exception as e:
             return JSONResponse(status_code=401, content={"detail": f"Invalid token: {str(e)}"})
         return await call_next(request)
@@ -50,9 +55,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if not jwt_token:
             return None
         db_user = self.supabase_helper.client.auth.get_user(jwt_token)
-        session = self.supabase_helper.client.auth.set_session(jwt_token, refresh_token)
-
-        if not db_user or not db_user.user or not session or not session.user:
+        if not db_user or not db_user.user:
             return None
         
         return db_user.user if db_user else None

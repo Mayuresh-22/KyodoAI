@@ -7,9 +7,9 @@ from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 from supabase_auth import User
 from helpers.schemas import SearchColabEmailsResponse, StartColabProcessResponse
+from helpers.supabase_helper import SupabaseHelper
 from middleware.auth_middleware import AuthMiddleware
 from dotenv import load_dotenv
-from helpers.supabase_helper import SupabaseHelper
 from helpers.portia_helper import PortiaHelper
 import json
 import re
@@ -53,8 +53,11 @@ def search_emails(request: Request):
     if not user or not getattr(user, "id", None):
         return JSONResponse(status_code=401, content={"detail": "User not authenticated"})
 
-    logger.info("Initializing Supabase helper")
-    supabase = SupabaseHelper()
+    # Use authenticated supabase helper from request state
+    supabase: Optional[SupabaseHelper] = getattr(request.state, "supabase_helper", None)
+    if not supabase:
+        return JSONResponse(status_code=500, content={"detail": "Database connection not available"})
+    
     user_id = str(user.id)  # Use actual authenticated user ID
     logger.info(f"Fetching profile for user_id: {user_id}")
     profile_resp = supabase.client.table("profiles").select(
@@ -71,8 +74,8 @@ def search_emails(request: Request):
     profile_dict = dict(profile) if profile else {}
     logger.info(f"Profile dictionary: {profile_dict}")
 
-    logger.info("Initializing Portia helper")
-    portia_helper = PortiaHelper()
+    logger.info("Initializing Portia helper with authenticated supabase session")
+    portia_helper = PortiaHelper(supabase_helper=supabase)
     logger.info("Running search collaboration emails task")
     result = portia_helper.run_search_colab_emails(
         end_user=user,
@@ -148,9 +151,10 @@ def start_colab_process(request: Request, body: StartProcessRequest):
     user_id = str(user.id)  # Use actual authenticated user ID
     msg_id = str(uuid.uuid4())
 
-    # Initialize Supabase helper
-    logger.info("Initializing Supabase helper")
-    supabase = SupabaseHelper()
+    # Use authenticated supabase helper from request state
+    supabase: Optional[SupabaseHelper] = getattr(request.state, "supabase_helper", None)
+    if not supabase:
+        return JSONResponse(status_code=500, content={"detail": "Database connection not available"})
     
     # Save initial message to database
     logger.info(f"Saving initial message with msg_id: {msg_id}")
@@ -195,8 +199,8 @@ def start_colab_process(request: Request, body: StartProcessRequest):
     logger.info("Successfully fetched user profile")
 
     # Run PortiaHelper.start_colab_process with email text/context
-    logger.info("Initializing Portia helper for start_colab_process")
-    portia_helper = PortiaHelper()
+    logger.info("Initializing Portia helper for start_colab_process with authenticated supabase session")
+    portia_helper = PortiaHelper(supabase_helper=supabase)
     logger.info("Running start collaboration process task")
     
     # Use the updated method signature with user preferences
