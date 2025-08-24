@@ -19,3 +19,6 @@ build/
 # Environments
 .venv/
 .env
+
+# Portia memory
+.portia/

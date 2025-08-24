@@ -1,22 +1,53 @@
-import React, { useState } from 'react';
+// Devangs Changes
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
-import HomePage from './components/HomePage';
-import Dashboard from './components/Dashboard';
-import ChatRooms from './components/ChatRooms';
 import Navigation from './components/Navigation';
-import RegistrationForm from './components/RegistrationForm'; // Add this import
+import { AuthProvider } from './components/auth/AuthContext';
+import Auth from './components/auth/Auth';
+import HomePage from './pages/HomePage';
+import DashboardPage from './pages/DashboardPage';
+import ChatRoomsPage from './pages/ChatRoomsPage';
 
-function App() {
-  const [currentPage, setCurrentPage] = useState('home');
+const NavigationWrapper = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentPage = location.pathname.slice(1) || 'home';
+  
+  const handleNavigate = (page: string) => {
+    navigate(`/${page.toLowerCase()}`);
+  };
+
+  return <Navigation currentPage={currentPage} onNavigate={handleNavigate} />;
+};
+
+const AppContent = () => {
+  const navigate = useNavigate();
+
+  const handlePageChange = (page: string) => {
+    navigate(`/${page.toLowerCase()}`);
+  };
 
   return (
-    <div>
-      <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
-      {currentPage === 'home' && <HomePage onNavigate={setCurrentPage} />}
-      {currentPage === 'dashboard' && <Dashboard onNavigate={setCurrentPage} />}
-      {currentPage === 'chatrooms' && <ChatRooms onNavigate={setCurrentPage} />}
-      {currentPage === 'register' && <RegistrationForm onNavigate={setCurrentPage} />}
-    </div>
+    <AuthProvider setCurrentPage={handlePageChange}>
+      <div>
+        <NavigationWrapper />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<Auth />} />
+          <Route path="/register" element={<Auth />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/chatrooms" element={<ChatRoomsPage />} />
+        </Routes>
+      </div>
+    </AuthProvider>
+  );
+};
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 
