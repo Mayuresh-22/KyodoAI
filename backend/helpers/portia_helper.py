@@ -1,3 +1,4 @@
+import uuid
 from dotenv import load_dotenv
 from enum import Enum
 from typing import Any, Dict, Optional, Union
@@ -6,8 +7,12 @@ from portia import (
     Config,
     LLMProvider,
     LLMTool,
+    Output,
+    Plan,
+    PlanRun,
     Portia,
     PortiaToolRegistry,
+    Step,
     StorageClass,
     logger,
     PlanBuilderV2,
@@ -18,7 +23,7 @@ from portia.cli import CLIExecutionHooks
 from portia.end_user import EndUser
 from supabase_auth import User
 
-from helpers.schemas import SearchColabEmailsResponse
+from helpers.schemas import SearchColabEmailsResponse, StartColabProcessResponse
 from helpers.supabase_helper import SupabaseHelper
 
 
@@ -157,6 +162,8 @@ class PortiaHelper:
     ) -> None:
         load_dotenv(override=True)
 
+        self._save_actions = False
+        self._msg_id = None
         self.config = Config.from_default(
             default_model="google/gemini-2.0-flash", 
             storage_class=storage_class
@@ -172,8 +179,26 @@ class PortiaHelper:
         self.portia = Portia(
             config=self.config,
             tools=PortiaToolRegistry(config=self.config),
-            execution_hooks=CLIExecutionHooks(),
+            execution_hooks=CLIExecutionHooks(
+                after_step_execution=self.log_after_step_in_db
+            ),
         )
+
+    def log_after_step_in_db(self, plan: Plan, plan_run: PlanRun, step: Step, output: Output) -> None:
+        """Log the output of a step in the plan."""
+        logger().info(f"Running step with task {step.task} using tool {step.tool_id}")
+        logger().info(f"Step output: {output}")
+        if self._save_actions:
+            action_data = {
+                "action_id": str(uuid.uuid4()),
+                "msg_id": self._msg_id,
+                "action_summary": str(output.get_summary() if output.get_summary() else output.get_value()),
+                "actor": "agent",
+                "details": output.get_value(),
+                "action_type": "step_output"
+            }
+            self.supabase_helper.client.table("actions").insert(action_data).execute()
+            logger().info("Successfully saved error action to database")
 
     def run_task(
         self,
@@ -324,15 +349,109 @@ class PortiaHelper:
             logger().exception("Manual plan execution failed")
             return {"error": "manual_plan_failed", "details": str(exc)}
 
-    def start_colab_process(self, end_user: User, email_text: dict, msg_id: str) -> Dict[str, Any]:
-        """Start the collaboration analysis process.
-
-        Optionally pass the raw `email_text` (or a short link/summary). The prompt accepts context
-        appended to the task.
-        """
-        return self.run_task(
-            PortiaTask.START_COLAB_PROCESS, 
-            end_user=end_user,
-            context=email_text,
-            msg_id=msg_id
-        )
+    def start_colab_process(
+        self, 
+        end_user: Optional[User], 
+        email_data: dict, 
+        user_preferences: dict, 
+        msg_id: str
+    ) -> Dict[str, Any]:
+        """Start collaboration analysis process using manual plan with conditional logic."""
+        logger().info("Starting manual plan for collaboration analysis process")
+        
+        try:
+            self._msg_id = msg_id
+            self._save_actions = True
+            # Build manual plan for collaboration analysis
+            plan = (
+                PlanBuilderV2("Analyze collaboration email and decide on next actions")
+                .input(
+                    name="email_data", 
+                    description="Selected email data with content, metadata, and thread information"
+                )
+                .input(
+                    name="user_preferences",
+                    description="User preferences including budget, terms, and collaboration requirements"
+                )
+                .llm_step(
+                    task="Parse the email content and extract key collaboration details: sender info, brand, subject, offer summary, proposed deliverables, compensation terms, exclusivity, deadlines, attachments, thread link, and received timestamp.",
+                    inputs=[Input("email_data")]
+                )
+                .llm_step(
+                    task="Analyze the parsed email against user preferences. Compare budget requirements, exclusivity terms, timeline limits, and deliverable formats. Determine fit level (high/medium/low), note relevance, identify missing information, and flag any risks.",
+                    inputs=[StepOutput(0), Input("user_preferences")]
+                )
+                .llm_step(
+                    task="Based on the analysis, decide the next action: 'ready_to_proceed' if all requirements match well, 'need_clarification' if missing key info, or 'reject' if poor fit. Provide confidence score and rationale.",
+                    inputs=[StepOutput(0), StepOutput(1)]
+                )
+                .llm_step(
+                    task="Create calendar event for collaboration follow-up using Google Calendar. Schedule a 30-minute meeting for tomorrow at 2pm to discuss the collaboration opportunity.",
+                    inputs=[StepOutput(0)]
+                )
+                .llm_step(
+                    task="""Based on the decision from step 2, handle the appropriate workflow:
+                    
+                    IF next_action is 'ready_to_proceed':
+                    - Draft a comprehensive contract including summary terms, payment terms, deliverables, milestones, timeline, acceptance criteria, and basic clauses (IP, termination, exclusivity)
+                    - Draft a professional reply email suggesting the contract
+                    - Set UI actions: ["preview_contract", "send_contract_and_email", "save_draft", "schedule_meeting", "edit_terms"]
+                    
+                    IF next_action is 'need_clarification':
+                    - Generate specific clarifying questions targeting missing or ambiguous information
+                    - Draft a professional reply requesting clarifications and propose provisional terms if appropriate
+                    - Create a contract draft skeleton for iteration
+                    - Set UI actions: ["send_questions", "save_draft", "escalate_to_human"]
+                    
+                    IF next_action is 'reject':
+                    - Draft a polite, professional decline email explaining reasons for rejection
+                    - Optionally suggest alternatives or future opportunities
+                    - Set UI actions: ["send_decline", "save_note"]
+                    
+                    Include autonomous actions list (calendar event creation) and clear assumptions for all cases.""",
+                    inputs=[StepOutput(0), StepOutput(1), StepOutput(2), StepOutput(3)]
+                )
+                .llm_step(
+                    task="Structure all outputs into the final JSON schema including email_parsed, analysis, next_action, confidence_score, suggested_reply, contract details, clarifying questions, autonomous actions (calendar event), assumptions, and next steps.",
+                    inputs=[StepOutput(0), StepOutput(1), StepOutput(2), StepOutput(3), StepOutput(4)]
+                )
+                .final_output(
+                    output_schema=StartColabProcessResponse,
+                    summarize=True
+                )
+                .build()
+            )
+            
+            logger().info("Executing manual plan for collaboration analysis")
+            plan_run = self.portia.run_plan(
+                plan,
+                plan_run_inputs={
+                    "email_data": email_data,
+                    "user_preferences": user_preferences
+                },
+                end_user=EndUser(external_id="255af79e-3ea8-448c-80f2-7470492b8979", email="mayureshchoudhary22@gmail.com")
+            )
+            
+            logger().info("Manual plan execution completed successfully")
+            
+            # Try to extract the output safely
+            try:
+                if hasattr(plan_run.outputs, 'final_output') and plan_run.outputs.final_output:
+                    final_output = plan_run.outputs.final_output
+                    value = getattr(final_output, 'value', None)
+                    summary = getattr(final_output, 'summary', None)
+                    
+                    return {
+                        "value": value if value is not None else "",
+                        "summary": str(summary) if summary is not None else ""
+                    }
+                else:
+                    logger().warning("No final output found in plan results")
+                    return {"value": "", "summary": ""}
+            except Exception as extract_error:
+                logger().warning(f"Failed to extract plan output: {extract_error}")
+                return {"value": "", "summary": ""}
+            
+        except Exception as exc:
+            logger().exception("Manual plan execution failed")
+            return {"error": "manual_plan_failed", "details": str(exc)}
