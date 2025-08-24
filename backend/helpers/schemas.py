@@ -25,4 +25,3 @@ class EmailItem(BaseModel):
 
 class SearchColabEmailsResponse(BaseModel):
     emails: List[EmailItem]
-    summary: EmailSummary
