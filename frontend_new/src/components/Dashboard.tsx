@@ -6,18 +6,27 @@ import { supabase } from '../lib/supabaseClient';
 import { User } from '@supabase/supabase-js';
 
 interface DashboardProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, email_id?: string) => void;
 }
 
+// Updated interface to match backend email structure but displayed as "Deals"
 interface Deal {
-  id: string;
-  title: string;
-  company: string;
-  summary: string;
-  budget: string;
-  status: string;
-  is_ai_active: boolean;
-  created_at: string;
+  email_id: string;
+  from_name: string;
+  from_email: string;
+  subject: string;
+  snippet: string;
+  received_at: string;
+  thread_link?: string;
+  labels: string[];
+  tags: string[];
+  relevance_score: number;
+  confidence: number;
+  first_received: string;
+  last_received: string;
+  ui_actions: string[];
+  notes?: string;
+  is_ai_active?: boolean; // For frontend tracking
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
@@ -26,22 +35,63 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const [user, setUser] = React.useState<User | null>(null);
   const [deals, setDeals] = React.useState<Deal[]>([]);
   
-  // Check for user session and fetch deals
+  // Check for user session and load emails from localStorage or backend
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUser(data.user);
       
       if (data.user) {
-        // Check if there are any deals to set mailsFetched
-        const { data: existingDeals } = await supabase
-          .from('deals')
-          .select('*')
-          .eq('user_id', data.user.id);
-        
-        if (existingDeals && existingDeals.length > 0) {
-          setMailsFetched(true);
-          setDeals(existingDeals);
+        // First, try to load emails from localStorage
+        const savedEmails = localStorage.getItem(`emails_${data.user.id}`);
+        if (savedEmails) {
+          try {
+            const parsedEmails = JSON.parse(savedEmails);
+            if (parsedEmails && parsedEmails.length > 0) {
+              setDeals(parsedEmails);
+              setMailsFetched(true);
+              console.log('Loaded emails from localStorage');
+              return; // Exit early if we have cached emails
+            }
+          } catch (error) {
+            console.error('Error parsing saved emails:', error);
+            localStorage.removeItem(`emails_${data.user.id}`);
+          }
+        }
+
+        // If no cached emails, check backend
+        try {
+          const { data: session } = await supabase.auth.getSession();
+          if (session?.session) {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/search-emails`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.session.access_token}`,
+                'X-Refresh-Token': session.session.refresh_token || '',
+              },
+            });
+            
+            if (response.ok) {
+              const backendData = await response.json();
+              if (backendData.value?.emails && backendData.value.emails.length > 0) {
+                // Transform emails to deals for display
+                const transformedDeals = backendData.value.emails.map((email: any) => ({
+                  ...email,
+                  is_ai_active: false // Default value for UI
+                }));
+                
+                // Save to localStorage
+                localStorage.setItem(`emails_${data.user.id}`, JSON.stringify(transformedDeals));
+                
+                setDeals(transformedDeals);
+                setMailsFetched(true);
+                console.log('Loaded emails from backend and saved to localStorage');
+              }
+            }
+          }
+        } catch (error) {
+          console.log('No existing emails found or backend not available');
         }
       }
     };
@@ -54,141 +104,63 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     
     setLoading(true);
     try {
-      // In a real app, this would call your backend API
-      // const response = await fetch('http://localhost:8000/search-emails', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({ user_id: user.id }),
-      // });
-      // const data = await response.json();
-      
-      // Mock data that simulates API response
-      const mock = {
-        emails: [
-          {
-            email_id: 'eml_001',
-            from_email: 'marketing@nike.com',
-            from_name: 'Nike Marketing',
-            subject: 'Exciting Collab Opportunity',
-            body: "Hey! We'd love to collaborate on our upcoming Just Do It campaign.",
-            snippet: "We'd love to collaborate on our upcoming campaign...",
-            received_at: '2025-08-20T09:30:00Z'
-          },
-          {
-            email_id: 'eml_002',
-            from_email: 'influencer@apple.com',
-            from_name: 'Apple Influencer Team',
-            subject: 'Join our iPhone 17 Launch Campaign',
-            body: 'Apple is seeking influencers for the iPhone 17 launch this fall.',
-            snippet: 'Apple is seeking influencers...',
-            received_at: '2025-08-18T15:45:00Z'
-          },
-          {
-            email_id: 'eml_003',
-            from_email: 'events@samsung.com',
-            from_name: 'Samsung Events',
-            subject: 'Sponsorship Proposal for TechCon 2025',
-            body: 'Samsung would like to sponsor you for TechCon 2025.',
-            snippet: 'Samsung would like to sponsor you...',
-            received_at: '2025-08-15T11:00:00Z'
-          }
-        ],
-        deals: [
-          {
-            email_id: 'eml_001',
-            from_email: 'marketing@nike.com',
-            title: 'Brand Collab with Nike',
-            company: 'Nike',
-            summary: 'Nike wants to collaborate for their Just Do It campaign.',
-            budget: '$10,000',
-            status: 'Pending',
-            is_ai_active: false,
-            first_email_received_at: '2025-08-20T09:30:00Z'
-          },
-          {
-            email_id: 'eml_002',
-            from_email: 'influencer@apple.com',
-            title: 'Influencer Deal with Apple',
-            company: 'Apple',
-            summary: 'Apple is inviting influencers for the iPhone 17 launch.',
-            budget: '$15,000',
-            status: 'Active',
-            is_ai_active: true,
-            first_email_received_at: '2025-08-18T15:45:00Z'
-          },
-          {
-            email_id: 'eml_003',
-            from_email: 'events@samsung.com',
-            title: 'Sponsorship from Samsung',
-            company: 'Samsung',
-            summary: 'Samsung offers sponsorship for TechCon 2025.',
-            budget: '$8,000',
-            status: 'Inactive',
-            is_ai_active: false,
-            first_email_received_at: '2025-08-15T11:00:00Z'
-          }
-        ]
-      };
-      
-      // 1. First, store emails in Supabase
-      for (const email of mock.emails) {
-        const { error: emailError } = await supabase
-          .from('emails')
-          .upsert({
-            user_id: user.id,
-            email_id: email.email_id,
-            from_email: email.from_email,
-            from_name: email.from_name,
-            subject: email.subject,
-            body: email.body,
-            snippet: email.snippet,
-            received_at: email.received_at,
-            created_at: new Date().toISOString()
-          }, { onConflict: 'email_id' }); // Prevent duplicates
-          
-        if (emailError) {
-          console.error('Error storing email:', emailError);
-        }
+      // Get session for authentication tokens
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session) {
+        console.error('No active session');
+        return;
       }
-      
-      // 2. Next, store deals in Supabase
-      for (const deal of mock.deals) {
-        const { error: dealError } = await supabase
-          .from('deals')
-          .upsert({
-            user_id: user.id,
-            title: deal.title,
-            company: deal.company,
-            summary: deal.summary,
-            budget: deal.budget.replace('$', ''),
-            status: deal.status,
-            is_ai_active: deal.is_ai_active,
-            created_at: deal.first_email_received_at,
-            // Use email_id to link deal to email
-            email_id: deal.email_id,
-            from_email:deal.from_email
-          }, { onConflict: 'email_id' }); // Prevent duplicates based on email
-          
-        if (dealError) {
-          console.error('Error storing deal:', dealError);
-        }
+
+      // Call backend API
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/search-emails`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'X-Refresh-Token': session.session.refresh_token || '',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend responded with ${response.status}`);
       }
+
+      const backendData = await response.json();
       
-      // 3. Fetch the updated deals to display
-      const { data: newDeals, error } = await supabase
-        .from('deals')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching deals:', error);
-      } else {
-        setDeals(newDeals || []);
+      if (backendData.value?.emails) {
+        // Transform backend emails to deals for display
+        const transformedDeals = backendData.value.emails.map((email: any) => ({
+          ...email,
+          is_ai_active: false // Default value for UI tracking
+        }));
+        
+        // Save to localStorage with user-specific key
+        localStorage.setItem(`emails_${user.id}`, JSON.stringify(transformedDeals));
+        console.log(`Saved ${transformedDeals.length} emails to localStorage`);
+        
+        setDeals(transformedDeals);
         setMailsFetched(true);
       }
+
+      // Comment: Previous mock data structure for reference
+      // const mock = {
+      //   emails: [
+      //     {
+      //       email_id: 'eml_001',
+      //       from_email: 'marketing@nike.com',
+      //       from_name: 'Nike Marketing',
+      //       subject: 'Exciting Collab Opportunity',
+      //       snippet: "We'd love to collaborate on our upcoming campaign...",
+      //       received_at: '2025-08-20T09:30:00Z',
+      //       labels: ["brand", "offer"],
+      //       tags: ["Nike", "Campaign"],
+      //       relevance_score: 0.95,
+      //       confidence: 0.9,
+      //       ui_actions: ["start_colab_process"]
+      //     }
+      //   ]
+      // };
+
     } catch (error) {
       console.error('Error processing emails:', error);
     } finally {
@@ -203,101 +175,58 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     
     setLoading(true);
     try {
-      // In a real app, this would call your backend API with rescan flag
-      // const response = await fetch('http://localhost:8000/search-emails', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({ 
-      //     user_id: user.id,
-      //     rescan: true 
-      //   }),
-      // });
-      // const data = await response.json();
-      
-      // Mock data for a rescan - different from the initial scan
-      const rescanMock = {
-        emails: [
-          {
-            email_id: 'eml_004', // New email
-            from_email: 'partnerships@adidas.com',
-            from_name: 'Adidas Partnerships',
-            subject: 'Exclusive Brand Partnership',
-            body: "We've seen your content and would like to discuss a partnership.",
-            snippet: "We've seen your content and would like to discuss...",
-            received_at: '2025-08-23T14:20:00Z'
-          }
-        ],
-        deals: [
-          {
-            email_id: 'eml_004',
-            from_email: 'partnerships@adidas.com',
-            title: 'Partnership with Adidas',
-            company: 'Adidas',
-            summary: 'Adidas wants to partner for exclusive content.',
-            budget: '$12,500',
-            status: 'Pending',
-            is_ai_active: false,
-            first_email_received_at: '2025-08-23T14:20:00Z'
-          }
-        ]
-      };
-      
-      // Process new emails and deals
-      for (const email of rescanMock.emails) {
-        const { error: emailError } = await supabase
-          .from('emails')
-          .upsert({
-            user_id: user.id,
-            email_id: email.email_id,
-            from_email: email.from_email,
-            from_name: email.from_name,
-            subject: email.subject,
-            body: email.body,
-            snippet: email.snippet,
-            received_at: email.received_at,
-            created_at: new Date().toISOString()
-          }, { onConflict: 'email_id' });
-          
-        if (emailError) {
-          console.error('Error storing email during rescan:', emailError);
-        }
+      // Get session for authentication tokens
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session) {
+        console.error('No active session');
+        return;
       }
-      
-      // Store new deals
-      for (const deal of rescanMock.deals) {
-        const { error: dealError } = await supabase
-          .from('deals')
-          .upsert({
-            user_id: user.id,
-            title: deal.title,
-            company: deal.company,
-            summary: deal.summary,
-            budget: deal.budget.replace('$', ''),
-            status: deal.status,
-            is_ai_active: deal.is_ai_active,
-            created_at: deal.first_email_received_at,
-            email_id: deal.email_id
-          }, { onConflict: 'email_id' });
-          
-        if (dealError) {
-          console.error('Error storing deal during rescan:', dealError);
-        }
+
+      // Call backend API for rescan
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/search-emails`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'X-Refresh-Token': session.session.refresh_token || '',
+        },
+        body: JSON.stringify({ rescan: true }) // Add rescan flag if backend supports it
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend responded with ${response.status}`);
       }
+
+      const backendData = await response.json();
       
-      // Refresh deals from database
-      const { data: refreshedDeals, error } = await supabase
-        .from('deals')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching deals:', error);
-      } else {
-        setDeals(refreshedDeals || []);
+      if (backendData.value?.emails) {
+        // Transform backend emails to deals for display
+        const transformedDeals = backendData.value.emails.map((email: any) => ({
+          ...email,
+          is_ai_active: deals.find(d => d.email_id === email.email_id)?.is_ai_active || false // Preserve AI status
+        }));
+        
+        // Update localStorage with new emails
+        localStorage.setItem(`emails_${user.id}`, JSON.stringify(transformedDeals));
+        console.log(`Updated localStorage with ${transformedDeals.length} emails after rescan`);
+        
+        setDeals(transformedDeals);
       }
+
+      // Comment: Previous mock rescan data for reference
+      // const rescanMock = {
+      //   emails: [
+      //     {
+      //       email_id: 'eml_004',
+      //       from_email: 'partnerships@adidas.com',
+      //       from_name: 'Adidas Partnerships',
+      //       subject: 'Exclusive Brand Partnership',
+      //       snippet: "We've seen your content and would like to discuss...",
+      //       received_at: '2025-08-23T14:20:00Z'
+      //     }
+      //   ]
+      // };
+
     } catch (error) {
       console.error('Error rescanning emails:', error);
     } finally {
@@ -305,41 +234,86 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     }
   };
 
-  // Toggle AI activation for a deal
-  const handleToggleAI = async (id: string) => {
+  // Toggle AI activation for a deal (using email_id as identifier)
+  const handleToggleAI = async (email_id: string) => {
     try {
       // Get current deal
-      const deal = deals.find(d => d.id === id);
+      const deal = deals.find(d => d.email_id === email_id);
       if (!deal) return;
       
-      // Update local state optimistically
-      setDeals(deals.map(deal => 
-        deal.id === id ? { ...deal, is_ai_active: !deal.is_ai_active } : deal
-      ));
+      const newAiStatus = !deal.is_ai_active;
       
-      // Update in Supabase
+      // Update local state optimistically
+      const updatedDeals = deals.map(deal => 
+        deal.email_id === email_id ? { ...deal, is_ai_active: newAiStatus } : deal
+      );
+      setDeals(updatedDeals);
+      
+      // Update localStorage with new AI status (write-through cache)
+      if (user) {
+        localStorage.setItem(`emails_${user.id}`, JSON.stringify(updatedDeals));
+        console.log(`Updated AI status for email ${email_id} in localStorage`);
+      }
+      
+      // Update database via Supabase
       const { error } = await supabase
-        .from('deals')
-        .update({ is_ai_active: !deal.is_ai_active })
-        .eq('id', id)
+        .from('emails')
+        .update({ is_ai_activate: newAiStatus })
+        .eq('email_id', email_id)
         .eq('user_id', user?.id);
         
       if (error) {
-        console.error('Error updating deal:', error);
-        // Revert optimistic update if there was an error
-        setDeals(deals.map(deal => 
-          deal.id === id ? { ...deal, is_ai_active: deal.is_ai_active } : deal
-        ));
+        console.error('Error updating email AI status:', error);
+        // Revert optimistic update if database update failed
+        const revertedDeals = deals.map(deal => 
+          deal.email_id === email_id ? { ...deal, is_ai_active: deal.is_ai_active } : deal
+        );
+        setDeals(revertedDeals);
+        if (user) {
+          localStorage.setItem(`emails_${user.id}`, JSON.stringify(revertedDeals));
+        }
+        return;
       }
+      
+      // If AI is being activated, call start-process endpoint
+      if (newAiStatus) {
+        try {
+          const { data: session } = await supabase.auth.getSession();
+          if (session?.session) {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/start-process`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.session.access_token}`,
+                'X-Refresh-Token': session.session.refresh_token || '',
+              },
+              body: JSON.stringify({ email_id: email_id })
+            });
+            
+            if (!response.ok) {
+              console.error('Failed to start collaboration process:', response.status);
+            } else {
+              console.log('Successfully started collaboration process for email:', email_id);
+            }
+          }
+        } catch (processError) {
+          console.error('Error calling start-process:', processError);
+        }
+      }
+      
     } catch (error) {
       console.error('Error toggling AI:', error);
+      // Revert optimistic update if there was an error
+      setDeals(deals.map(deal => 
+        deal.email_id === email_id ? { ...deal, is_ai_active: deal.is_ai_active } : deal
+      ));
     }
   };
   
   // Handle clicking on a deal to open the chat
   const handleDealClick = (deal: Deal) => {
     if (deal.is_ai_active) {
-      onNavigate('chatrooms');
+      onNavigate('chatrooms', deal.email_id);
     }
   };
 
@@ -426,7 +400,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 my-24 relative z-10">
           {deals.map((deal, index) => (
             <div
-              key={deal.id}
+              key={deal.email_id}
               className={`bg-white rounded-2xl shadow-lg p-6 flex flex-col items-start transition-all duration-300 cursor-pointer ${
                 deal.is_ai_active ? 'border-2 border-orange-500' : 'border border-gray-200'
               }`}
@@ -434,22 +408,67 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               onClick={() => handleDealClick(deal)}
             >
               <div className="text-sm text-gray-500 mb-3">
-                {new Date(deal.created_at).toLocaleDateString()}
+                {new Date(deal.received_at).toLocaleDateString()}
               </div>
-              <div className="flex items-center space-x-4 mb-4">
+              
+              {/* Email Header */}
+              <div className="flex items-center space-x-4 mb-4 w-full">
                 <img src="/rocket.png" alt="Deal" width={32} height={32} />
-                <h3 className="text-2xl font-bold text-gray-900">{deal.title}</h3>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-gray-900 truncate">{deal.subject}</h3>
+                  <p className="text-sm text-gray-600">{deal.from_name}</p>
+                </div>
               </div>
-              <p className="text-gray-600 mb-2">{deal.summary}</p>
-              <div className="mb-2 font-semibold text-gray-900">Company: {deal.company}</div>
-              <div className="mb-4 text-gray-600">Budget: {deal.budget}</div>
+
+              {/* Email Content */}
+              <p className="text-gray-600 mb-3 line-clamp-3">{deal.snippet}</p>
+              
+              {/* Labels */}
+              <div className="mb-3 flex flex-wrap gap-1">
+                {deal.labels?.map((label, idx) => (
+                  <span 
+                    key={idx}
+                    className="inline-block bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+
+              {/* Tags */}
+              {deal.tags && deal.tags.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-1">
+                  {deal.tags.map((tag, idx) => (
+                    <span 
+                      key={idx}
+                      className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Relevance Score */}
+              <div className="mb-4 text-sm text-gray-600">
+                Relevance: {Math.round((deal.relevance_score || 0) * 100)}%
+              </div>
+
+              {/* Notes */}
+              {deal.notes && (
+                <div className="mb-4 text-sm text-gray-600 italic">
+                  {deal.notes}
+                </div>
+              )}
+
+              {/* AI Toggle Button */}
               <button
                 className={`px-4 py-2 rounded-full font-medium transition-all duration-200 ${
                   deal.is_ai_active ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700'
                 }`}
                 onClick={(e) => { 
                   e.stopPropagation(); 
-                  handleToggleAI(deal.id); 
+                  handleToggleAI(deal.email_id); 
                 }}
               >
                 {deal.is_ai_active ? 'Deactivate AI' : 'Activate AI'}

@@ -37,6 +37,7 @@ const AppContent = () => {
           <Route path="/register" element={<Auth />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/chatrooms" element={<ChatRoomsPage />} />
+          <Route path="/chatrooms/:email_id" element={<ChatRoomsPage />} />
         </Routes>
       </div>
     </AuthProvider>

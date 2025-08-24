@@ -133,7 +133,7 @@ export const LoginForm: React.FC = () => {
               className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading}
             >
-              {isLoading ? 'Processing...' : 'Create Account'}
+              {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
 
             {error && (

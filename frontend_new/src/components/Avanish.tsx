@@ -141,16 +141,13 @@ export default function RegistrationForm({ onNavigate }: RegistrationFormProps) 
       // Prepare profile data according to your database schema
       const profileData = {
         id: userId,
-        name: formData.name.trim(),
+        full_name: formData.name.trim(),
         email: formData.email.trim(),
-        company: formData.company.trim() || null,
-        min_budget: formData.minBudget || null, // text field as per schema
-        max_budget: formData.maxBudget || null, // text field as per schema
-        domain: formData.domain || null,
-        content_types: formData.contentTypes.trim() || null,
-        auto_invoicing: formData.autoInvoicing,
-        payment_terms: formData.paymentTerms || null,
-        notes: formData.notes.trim() || null,
+        min_budget: formData.minBudget || null,
+        max_budget: formData.maxBudget || null,
+        content_niche: formData.domain || null, // Using domain as content_niche
+        auto_generate_invoice: formData.autoInvoicing,
+        guidelines: formData.notes.trim() || null,
       };
 
       // Insert into profiles table

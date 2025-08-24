@@ -1,93 +1,89 @@
-// Dynamic ChatRooms implementation with Supabase
-import React, { useState, useEffect } from 'react';
+// Updated ChatRooms implementation with emails table and real database queries
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-// Vertical Generation Timeline 
-import Timeline from '@mui/lab/Timeline';
-import TimelineItem from '@mui/lab/TimelineItem';
-import TimelineSeparator from '@mui/lab/TimelineSeparator';
-import TimelineConnector from '@mui/lab/TimelineConnector';
-import TimelineContent from '@mui/lab/TimelineContent';
-import TimelineDot from '@mui/lab/TimelineDot';
+import {
+  Timeline,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineConnector,
+  TimelineContent,
+  TimelineDot,
+} from '@mui/lab';
+import { CircularProgress } from '@mui/material';
 
-// Optional: MUI Icons for different states
-import CircularProgress from '@mui/material/CircularProgress';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
-
-/**
- * Props:
- * - onNavigate: parent-provided navigation handler
- */
 interface ChatRoomsProps {
   onNavigate: (page: string) => void;
 }
 
-// AI generation step tracking
-type StepStatus = 'pending' | 'active' | 'completed' | 'error';
-
-interface AIStep {
-  id: string;
-  label: string;
-  detail?: string;
-  status: StepStatus;
+// Updated interfaces to match database schema
+interface Email {
+  email_id: string;
+  from_name: string;
+  from_email: string;
+  subject: string;
+  summary: string;
+  received_at: string;
+  thread_link?: string;
+  labels: string[];
+  tags: string[];
+  relevance_score: number;
+  confidence: number;
+  first_received: string;
+  last_received: string;
+  ui_actions: string[];
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+  is_ai_activate: boolean;
 }
 
 interface Message {
-  id?: string;
-  deal_id: string;
-  user_id?: string; 
-  sender: 'user' | 'ai' | 'timeline';
-  content: string;
-  suggested_actions?: Array<{ action_name: string; action_desc: string }>;
-  created_at?: string;
-}
-
-interface Deal {
-  id: string;
+  msg_id: string;
   user_id: string;
+  message: string;
+  chat_id?: string;
   email_id: string;
-  title: string;
-  company: string;
-  summary: string;
-  budget: string;
-  status: string;
-  is_ai_active: boolean;
+  processed: boolean;
   created_at: string;
+  updated_at: string;
 }
 
-/**
- * ChatRooms
- * - Two-pane layout:
- *   1) Left sidebar: list of "deals" (rooms) to select
- *   2) Right pane: chat header, timeline, messages, and input composer
- */
+interface Action {
+  action_id: string;
+  msg_id: string;
+  action_summary: string;
+  actor: string;
+  details?: any;
+  created_at: string;
+  updated_at: string;
+  action_type: string;
+}
+
+interface MessageWithActions {
+  message: Message;
+  actions: Action[];
+}
+
 const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [selectedDeal, setSelectedDeal] = useState(0);
-  const [message, setMessage] = useState('');
-  const [dealMessages, setDealMessages] = useState<Message[][]>([]);
+  const { email_id } = useParams<{ email_id: string }>();
+  const [emails, setEmails] = useState<Email[]>([]);
+  const [selectedEmailIndex, setSelectedEmailIndex] = useState(0);
+  const [currentEmail, setCurrentEmail] = useState<Email | null>(null);
+  const [messagesWithActions, setMessagesWithActions] = useState<MessageWithActions[]>([]);
+  const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const [user, setUser] = useState<any>(null);
   
-  // Default timeline steps
-  const defaultTimeline = [
-    { id: 'queue', label: 'Queued', detail: 'Waiting for worker', status: 'pending' as StepStatus },
-    { id: 'analyze', label: 'Analyzing prompt', detail: 'Extracting intent', status: 'pending' as StepStatus },
-    { id: 'retrieve', label: 'Fetching context', detail: 'Searching emails', status: 'pending' as StepStatus },
-    { id: 'generate', label: 'Generating response', detail: 'Planning reply', status: 'pending' as StepStatus },
-    { id: 'stream', label: 'Streaming', detail: 'Sending tokens', status: 'pending' as StepStatus },
-  ];
-  
-  const [dealTimelines, setDealTimelines] = useState<AIStep[][]>([]);
-  const [dealGenerating, setDealGenerating] = useState<boolean[]>([]);
+  const chatAreaRef = useRef<HTMLDivElement>(null);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  const chatAreaRef = React.useRef<HTMLDivElement>(null);
-
-  // Fetch user and AI-active deals and their messages
+  // Fetch user and AI-activated emails
   useEffect(() => {
-    const fetchUserAndDeals = async () => {
+    const fetchUserAndEmails = async () => {
       try {
-        // Get current user
         const { data: userData } = await supabase.auth.getUser();
         if (!userData?.user) {
           console.error('No user found');
@@ -97,307 +93,224 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
         
         setUser(userData.user);
         
-        // Fetch AI-active deals
-        const { data: dealsData, error: dealsError } = await supabase
-          .from('deals')
+        // Fetch AI-activated emails
+        const { data: emailsData, error: emailsError } = await supabase
+          .from('emails')
           .select('*')
           .eq('user_id', userData.user.id)
-          .eq('is_ai_active', true)
-          .order('created_at', { ascending: false });
+          .eq('is_ai_activate', true)
+          .order('received_at', { ascending: false });
           
-        if (dealsError) {
-          console.error('Error fetching deals:', dealsError);
+        if (emailsError) {
+          console.error('Error fetching emails:', emailsError);
           setLoading(false);
           return;
         }
         
-        if (!dealsData || dealsData.length === 0) {
+        if (!emailsData || emailsData.length === 0) {
           setLoading(false);
           return;
         }
         
-        setDeals(dealsData);
+        setEmails(emailsData);
         
-        // Initialize arrays for messages and timelines
-        const messagesArray: Message[][] = [];
-        const timelinesArray: AIStep[][] = [];
-        const generatingArray: boolean[] = [];
-        
-        // Fetch messages for each deal
-        for (const deal of dealsData) {
-          const { data: messagesData, error: messagesError } = await supabase
-            .from('messages')
-            .select('*')
-            .eq('deal_id', deal.id)
-            .order('created_at', { ascending: true });
-            
-          if (messagesError) {
-            console.error(`Error fetching messages for deal ${deal.id}:`, messagesError);
-            messagesArray.push([]);
+        // Set selected email based on URL param or default to first
+        if (email_id) {
+          const emailIndex = emailsData.findIndex(email => email.email_id === email_id);
+          if (emailIndex !== -1) {
+            setSelectedEmailIndex(emailIndex);
+            setCurrentEmail(emailsData[emailIndex]);
           } else {
-            messagesArray.push(messagesData || []);
+            // Email ID not found, default to first
+            setCurrentEmail(emailsData[0]);
           }
-          
-          // Initialize timeline for each deal
-          timelinesArray.push([...defaultTimeline]);
-          generatingArray.push(false);
+        } else {
+          setCurrentEmail(emailsData[0]);
         }
-        
-        setDealMessages(messagesArray);
-        setDealTimelines(timelinesArray);
-        setDealGenerating(generatingArray);
         
       } catch (error) {
-        console.error('Error in fetchUserAndDeals:', error);
+        console.error('Error in fetchUserAndEmails:', error);
       } finally {
         setLoading(false);
       }
     };
     
-    fetchUserAndDeals();
-  }, []);
+    fetchUserAndEmails();
+  }, [email_id]);
 
-  // Auto-scroll to the latest message whenever current deal's messages change
-  React.useEffect(() => {
+  // Fetch messages and actions for current email
+  const fetchMessagesWithActions = async (emailId: string) => {
+    try {
+      // Fetch messages for the email
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('email_id', emailId)
+        .order('created_at', { ascending: true });
+        
+      if (messagesError) {
+        console.error('Error fetching messages:', messagesError);
+        return;
+      }
+      
+      if (!messagesData || messagesData.length === 0) {
+        setMessagesWithActions([]);
+        return;
+      }
+      
+      // Fetch actions for all messages
+      const messageIds = messagesData.map(msg => msg.msg_id);
+      const { data: actionsData, error: actionsError } = await supabase
+        .from('actions')
+        .select('*')
+        .in('msg_id', messageIds)
+        .order('created_at', { ascending: true });
+        
+      if (actionsError) {
+        console.error('Error fetching actions:', actionsError);
+        return;
+      }
+      
+      // Group actions by message ID
+      const actionsByMessage: { [key: string]: Action[] } = {};
+      (actionsData || []).forEach(action => {
+        if (!actionsByMessage[action.msg_id]) {
+          actionsByMessage[action.msg_id] = [];
+        }
+        actionsByMessage[action.msg_id].push(action);
+      });
+      
+      // Combine messages with their actions
+      const combined: MessageWithActions[] = messagesData.map(message => ({
+        message,
+        actions: actionsByMessage[message.msg_id] || []
+      }));
+      
+      setMessagesWithActions(combined);
+      
+    } catch (error) {
+      console.error('Error fetching messages with actions:', error);
+    }
+  };
+
+  // Set up polling for messages and actions
+  useEffect(() => {
+    if (!currentEmail) return;
+    
+    // Initial fetch
+    fetchMessagesWithActions(currentEmail.email_id);
+    
+    // Set up polling every 5 seconds
+    pollingRef.current = setInterval(() => {
+      fetchMessagesWithActions(currentEmail.email_id);
+    }, 5000);
+    
+    // Cleanup
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, [currentEmail]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
     if (chatAreaRef.current) {
       chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
     }
-  }, [dealMessages, selectedDeal]);
+  }, [messagesWithActions]);
 
-  // TIMELINE FUNCTIONS
-  const renderTimeline = () => {
-    if (!dealTimelines[selectedDeal]) return null;
+  // Handle email selection
+  const handleEmailSelect = (email: Email, index: number) => {
+    setSelectedEmailIndex(index);
+    setCurrentEmail(email);
+    // Update URL without page reload
+    window.history.pushState({}, '', `/chatrooms/${email.email_id}`);
+  };
+
+  // Send new message
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !currentEmail || !user) return;
+    
+    setSending(true);
+    try {
+      // Insert message into database
+      const { data: messageData, error: messageError } = await supabase
+        .from('messages')
+        .insert([{
+          user_id: user.id,
+          message: newMessage.trim(),
+          email_id: currentEmail.email_id,
+          processed: false
+        }])
+        .select()
+        .single();
+        
+      if (messageError) {
+        console.error('Error sending message:', messageError);
+        return;
+      }
+      
+      setNewMessage('');
+      
+      // Immediately fetch updated messages
+      fetchMessagesWithActions(currentEmail.email_id);
+      
+    } catch (error) {
+      console.error('Error in handleSendMessage:', error);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Render actions timeline for a message
+  const renderActionsTimeline = (actions: Action[]) => {
+    if (actions.length === 0) return null;
     
     return (
-      <Timeline sx={{ padding: 0, margin: 0}}>
-        {dealTimelines[selectedDeal].map((step, index) => (
-          <TimelineItem key={step.id} sx={{ minHeight: 60 , "&::before": { display: "none" }}}>
-            <TimelineSeparator>
-              <TimelineDot 
-                color={
-                  step.status === 'completed' ? 'success' :
-                  step.status === 'active' ? 'primary' :
-                  step.status === 'error' ? 'error' : 'grey'
-                }
-                sx={{ 
-                  bgcolor: step.status === 'active' ? '#ff6b35' : undefined // Your orange color
-                }}
-              >
-                {step.status === 'active' && (
-                  <CircularProgress size={16} sx={{ color: 'white' }} />
-                )}
-                {step.status === 'completed' && (
-                  <CheckCircleIcon sx={{ fontSize: 16 }} />
-                )}
-                {step.status === 'error' && (
-                  <ErrorIcon sx={{ fontSize: 16 }} />
-                )}
-              </TimelineDot>
-              {index < dealTimelines[selectedDeal].length - 1 && <TimelineConnector />}
-            </TimelineSeparator>
-            <TimelineContent sx={{ py: '12px', px: 2 }}>
-              <div className="text-sm font-medium text-gray-900">{step.label}</div>
-              {step.detail && (
-                <div className="text-xs text-gray-600 mt-1">{step.detail}</div>
-              )}
-            </TimelineContent>
-          </TimelineItem>
-        ))}
-      </Timeline>
+      <div className="mt-3 bg-gray-50 rounded-lg p-3">
+        <div className="text-xs font-medium text-gray-600 mb-2">AI Actions Timeline</div>
+        <Timeline sx={{ padding: 0, margin: 0 }}>
+          {actions.map((action, index) => (
+            <TimelineItem key={action.action_id} sx={{ minHeight: 40, "&::before": { display: "none" } }}>
+              <TimelineSeparator>
+                <TimelineDot 
+                  color="primary"
+                  sx={{ 
+                    bgcolor: '#ff6b35',
+                    width: 12,
+                    height: 12
+                  }}
+                />
+                {index < actions.length - 1 && <TimelineConnector sx={{ height: 20 }} />}
+              </TimelineSeparator>
+              <TimelineContent sx={{ py: '6px', px: 2 }}>
+                <div 
+                  className={`text-sm ${
+                    index === actions.length - 1 
+                      ? 'font-semibold text-gray-900' 
+                      : 'text-gray-700'
+                  }`}
+                >
+                  {action.action_summary}
+                </div>
+                {/* {action.details && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {typeof action.details === 'string' 
+                      ? action.details 
+                      : JSON.stringify(action.details)
+                    }
+                  </div>
+                )} */}
+              </TimelineContent>
+            </TimelineItem>
+          ))}
+        </Timeline>
+      </div>
     );
   };
 
-  // Timeline step helpers per deal
-  const advanceStep = (stepId: string, status: StepStatus = 'active') => {
-    setDealTimelines(prev => {
-      const updated = [...prev];
-      if (!updated[selectedDeal]) return prev;
-      
-      updated[selectedDeal] = updated[selectedDeal].map(step => {
-        if (step.id === stepId) {
-          return { ...step, status };
-        }
-        if (step.status === 'active' && step.id !== stepId) {
-          return { ...step, status: 'completed' };
-        }
-        return step;
-      });
-      return updated;
-    });
-  };
-
-  const resetSteps = () => {
-    setDealTimelines(prev => {
-      const updated = [...prev];
-      updated[selectedDeal] = defaultTimeline.map(step => ({ ...step }));
-      return updated;
-    });
-  };
-
-  // Save message to Supabase
-  const saveMessageToSupabase = async (message: Message) => {
-    if (!user) return;
-    
-    try {
-      const messageWithUser = {
-        ...message,
-        user_id: user.id,
-        created_at: new Date().toISOString() // Ensure created_at is set
-      };
-      
-      // Insert the message
-      const { error } = await supabase
-        .from('messages')
-        .insert([messageWithUser]);
-        
-      if (error) {
-        console.error('Error saving message:', error);
-      }
-    } catch (error) {
-      console.error('Error in saveMessageToSupabase:', error);
-    }
-  };
-
-  const simulateAIProgress = async () => {
-    if (!deals[selectedDeal]) return;
-    
-    setDealGenerating(prev => {
-      const updated = [...prev];
-      updated[selectedDeal] = true;
-      return updated;
-    });
-    
-    resetSteps();
-
-    // Add timeline as a "message" in the chat
-    setDealMessages(prev => {
-      const updated = [...prev];
-      updated[selectedDeal] = [
-        ...updated[selectedDeal],
-        { 
-          deal_id: deals[selectedDeal].id, 
-          sender: 'timeline', 
-          content: '' 
-        }
-      ];
-      return updated;
-    });
-
-    // Simulate the AI pipeline
-    advanceStep('queue', 'completed');
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    advanceStep('analyze');
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    advanceStep('retrieve');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    advanceStep('generate');
-    await new Promise(resolve => setTimeout(resolve, 1200));
-
-    advanceStep('stream');
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    // Mark final step as completed
-    setDealTimelines(prev => {
-      const updated = [...prev];
-      updated[selectedDeal] = updated[selectedDeal].map(step =>
-        step.id === 'stream' ? { ...step, status: 'completed' } : step
-      );
-      return updated;
-    });
-
-    // Get details about the selected deal for better AI response
-    const deal = deals[selectedDeal];
-    
-    // Prepare AI response content with deal-specific information
-    const aiResponseContent = [
-      `Based on your query about the deal with ${deal.company}, here are the key points:`,
-      `- This is a ${deal.status.toLowerCase()} collaboration for ${deal.budget ? '$' + deal.budget : 'an undisclosed amount'}`,
-      `- ${deal.summary}`,
-      '',
-      'Would you like me to draft a response email or prepare any other content for this deal?'
-    ].join('\n');
-    
-    // Suggested actions
-    const suggestedActions = [
-      {
-        action_name: 'Send Acknowledgement',
-        action_desc: `Draft and send initial acknowledgment to ${deal.company}`
-      },
-      {
-        action_name: 'Finalize Deal',
-        action_desc: `Draft terms for finalizing the deal with ${deal.company}`
-      }
-    ];
-
-    // Create new AI message
-    const newMessage: Message = {
-      deal_id: deals[selectedDeal].id,
-      sender: 'ai',
-      content: aiResponseContent,
-      suggested_actions: suggestedActions
-    };
-    
-    // Save to Supabase (outside the state update callback)
-    await saveMessageToSupabase(newMessage);
-
-    // Remove timeline message and add AI response
-    setDealMessages(prev => {
-      const updated = [...prev];
-      const withoutTimeline = updated[selectedDeal].filter(msg => msg.sender !== 'timeline');
-      
-      updated[selectedDeal] = [
-        ...withoutTimeline,
-        newMessage
-      ];
-      return updated;
-    });
-    
-    setDealGenerating(prev => {
-      const updated = [...prev];
-      updated[selectedDeal] = false;
-      return updated;
-    });
-  };
-
-  // Send message for selected deal
-  const handleSendMessage = async (userQuery: string) => {
-    if (!userQuery.trim() || deals.length === 0) return;
-    
-    try {
-      // Create user message
-      const userMessage: Message = {
-        deal_id: deals[selectedDeal].id,
-        user_id: user?.id,
-        sender: 'user',
-        content: userQuery
-      };
-      
-      // Update UI optimistically
-      setDealMessages(prev => {
-        const updated = [...prev];
-        updated[selectedDeal] = [
-          ...updated[selectedDeal],
-          userMessage
-        ];
-        return updated;
-      });
-      
-      setMessage('');
-      
-      // Save user message to Supabase
-      await saveMessageToSupabase(userMessage);
-      
-      // Start AI generation process (timeline)
-      simulateAIProgress();
-    } catch (error) {
-      console.error('Error sending message:', error);
-    }
-  };
-
-  // Render loading state
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -409,14 +322,14 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
     );
   }
   
-  // Render empty state if no deals
-  if (deals.length === 0) {
+  // Empty state if no emails
+  if (emails.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md p-8 bg-white rounded-2xl shadow-lg">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">No Active Deals</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">No Active Conversations</h2>
           <p className="text-gray-600 mb-6">
-            You don't have any active AI conversations. Go to your dashboard and activate AI for some deals to start chatting.
+            You don't have any active AI conversations. Go to your dashboard and activate AI for some emails to start chatting.
           </p>
           <button
             onClick={() => onNavigate('dashboard')}
@@ -429,15 +342,13 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
     );
   }
   
-  const currentDeal = deals[selectedDeal];
-
   return (
     <div className="min-h-screen flex overflow-hidden">
-      {/* Left Column */}
+      {/* Left Column - Email List */}
       <div className="w-80 bg-orange-500 p-6 rounded-t-3xl flex-shrink-0 mt-5">
         <div className="space-y-4 flex items-center justify-center p-5">
           <button
-            className="text-lg center text-2xl md:text-2xl font-bold font-playfair text-black hover:text-white focus:outline-none transition-colors duration-200"
+            className="text-2xl md:text-2xl font-bold font-playfair text-black hover:text-white focus:outline-none transition-colors duration-200"
             onClick={() => onNavigate('dashboard')}
             aria-label="Go to Home"
           >
@@ -445,132 +356,117 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
           </button>
         </div>
         <div className="space-y-4">
-          {deals.map((deal, index) => (
-            <button
-              key={deal.id}
-              onClick={() => setSelectedDeal(index)}
-              className={`w-full p-4 rounded-2xl font-semibold text-left transition-all duration-200 ${
-                selectedDeal === index
-                  ? 'bg-white text-orange-500 shadow-lg'
-                  : 'bg-orange-400 text-white hover:bg-white hover:text-orange-500'
+          {emails.map((email, index) => (
+            <div
+              key={email.email_id}
+              className={`p-4 rounded-xl cursor-pointer transition-all duration-200 ${
+                selectedEmailIndex === index
+                  ? 'bg-white text-gray-900 shadow-lg'
+                  : 'bg-orange-400/50 text-white hover:bg-orange-400/70'
               }`}
-              aria-pressed={selectedDeal === index}
+              onClick={() => handleEmailSelect(email, index)}
             >
-              {deal.title}
-            </button>
+              <div className="flex items-center space-x-3">
+                <img src="/rocket.png" alt="Email" width={24} height={24} />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium truncate">{email.subject}</h3>
+                  <p className="text-sm opacity-75 truncate">{email.from_name}</p>
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {email.labels.slice(0, 2).map((label, idx) => (
+                  <span 
+                    key={idx}
+                    className="inline-block bg-white/20 text-xs px-2 py-1 rounded-full"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>
 
-      {/* Right Column */}
+      {/* Right Column - Chat Interface */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-gray-900">{currentDeal.title}</h1>
-            <div className="flex items-center space-x-8">
-              <span className="font-semibold text-gray-700">{currentDeal.company}</span>
-              <span className="text-gray-600">{currentDeal.status}</span>
+        {currentEmail && (
+          <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{currentEmail.subject}</h1>
+                <p className="text-gray-600">{currentEmail.from_name} ({currentEmail.from_email})</p>
+                <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                  <span>Relevance: {Math.round((currentEmail.relevance_score || 0) * 100)}%</span>
+                  <span>•</span>
+                  <span>{new Date(currentEmail.received_at).toLocaleDateString()}</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        {/* Messages list: scrollable container */}
+        )}
+
+        {/* Messages Area */}
         <div
           ref={chatAreaRef}
           className="flex-1 p-6 bg-gray-50 overflow-y-auto space-y-4"
           style={{ minHeight: '400px', maxHeight: 'calc(100vh - 190px)' }}
         >
-          {/* Show deal info message at start of conversation */}
-          {(!dealMessages[selectedDeal] || dealMessages[selectedDeal].length === 0) && (
-            <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
-              <div className="flex items-start space-x-3 mb-2">
-                <img src="/stars.svg" alt="Assistant" className="mt-1" width={20} height={20} />
-                <div className="flex-1">
-                  <p className="text-gray-800 leading-relaxed mb-1">
-                    Welcome to your chat about the deal with {currentDeal.company}.
-                  </p>
-                  <p className="text-gray-800 leading-relaxed mb-1">
-                    This is a {currentDeal.status.toLowerCase()} deal with a budget of ${currentDeal.budget}.
-                  </p>
-                  <p className="text-gray-800 leading-relaxed mb-3">
-                    {currentDeal.summary}
-                  </p>
-                  <p className="text-gray-800 leading-relaxed">
-                    How can I help you with this collaboration?
-                  </p>
-                </div>
-              </div>
+          {messagesWithActions.length === 0 && (
+            <div className="text-center text-gray-500 mt-8">
+              <p>No messages yet. Start the conversation!</p>
             </div>
           )}
           
-          {/* Render existing messages */}
-          {dealMessages[selectedDeal] && dealMessages[selectedDeal].map((msg, idx) => {
-            if (msg.sender === 'timeline') {
-              // Timeline message: shows AI generation progress
-              return (
-                <div key={idx} className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                  <div className="text-sm font-medium text-gray-700 mb-3">🤖 AI Generation Progress</div>
-                  {renderTimeline()}
-                </div>
-              );
-            } else if (msg.sender === 'ai') {
-              return (
-                <div key={idx} className="bg-orange-50 border border-orange-200 rounded-2xl p-6">
-                  <div className="flex items-start space-x-3 mb-2">
-                    <img src="/stars.svg" alt="Assistant" className="mt-1" width={20} height={20} />
-                    <div className="flex-1">
-                      {msg.content.split('\n').map((line, i) => (
-                        <p key={i} className="text-gray-800 leading-relaxed mb-1">{line}</p>
-                      ))}
-                      {Array.isArray(msg.suggested_actions) && msg.suggested_actions.length > 0 && (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {msg.suggested_actions.map((action, i) => (
-                            <button
-                              key={i}
-                              className="border-2 border-dashed border-orange-400 rounded-full px-4 py-2 text-orange-700 bg-white font-semibold text-sm hover:bg-orange-50 transition"
-                              type="button"
-                              onClick={() => handleSendMessage(action.action_desc)}
-                            >
-                              {action.action_name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+          {messagesWithActions.map((msgWithActions, idx) => (
+            <div key={msgWithActions.message.msg_id} className="space-y-3">
+              {/* User Message */}
+              <div className="flex justify-end">
+                <div className="bg-orange-500 text-white p-4 rounded-2xl max-w-xs lg:max-w-md">
+                  <p>{msgWithActions.message.message}</p>
+                  <div className="text-xs opacity-75 mt-2">
+                    {new Date(msgWithActions.message.created_at).toLocaleString()}
                   </div>
                 </div>
-              );
-            } else {
-              return (
-                <div key={idx} className="bg-gray-200 border border-gray-200 rounded-2xl p-6 flex items-start space-x-3">
-                  <p className="text-gray-800">{msg.content}</p>
+              </div>
+
+              {/* Actions Timeline */}
+              {msgWithActions.actions.length > 0 && (
+                <div className="flex justify-start">
+                  <div className="bg-white p-4 rounded-2xl max-w-2xl shadow-lg">
+                    {renderActionsTimeline(msgWithActions.actions)}
+                  </div>
                 </div>
-              );
-            }
-          })}
+              )}
+            </div>
+          ))}
         </div>
-        {/* User Input */}
+
+        {/* Message Input */}
         <div className="p-6 bg-white border-t border-gray-200">
           <div className="max-w-4xl mx-auto">
-            <div className="flex items-center space-x-4">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Type your message..."
-                  className="w-full bg-black text-white px-6 py-4 rounded-full text-lg focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder-gray-400"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage(message)}
-                  aria-label="Type a message"
-                />
-                <button
-                  onClick={() => handleSendMessage(message)}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-orange-500 hover:bg-orange-600 p-2 rounded-full text-white transition-colors duration-200 w-20"
-                  aria-label="Send message"
-                >
-                  <span role="img" aria-hidden="true" style={{ fontSize: '20px' }}>➤</span>
-                </button>
-              </div>
+            <div className="flex space-x-4">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder="Type your message..."
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                disabled={sending}
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={sending || !newMessage.trim()}
+                className="bg-orange-500 text-white px-6 py-3 rounded-full font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sending ? (
+                  <CircularProgress size={20} sx={{ color: 'white' }} />
+                ) : (
+                  'Send'
+                )}
+              </button>
             </div>
           </div>
         </div>
