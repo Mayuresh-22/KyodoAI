@@ -24,13 +24,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         auth_header = request.headers.get("Authorization")
         refresh_token = request.headers.get("X-Refresh-Token")
-        if not auth_header:
+        if not auth_header or not refresh_token:
             return JSONResponse(status_code=401, content={"detail": "Authorization header missing"})
         try:
             scheme, _, token = auth_header.partition(" ")
             if scheme.lower() != "bearer" or not token:
                 raise ValueError("Invalid auth header format")
-            user = self.verify_token(token)
+            user = self.verify_token(token, refresh_token)
             if not user:
                 return JSONResponse(status_code=401, content={"detail": "Invalid or expired token", "refresh_token": refresh_token})
             request.state.user = user
@@ -38,7 +38,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return JSONResponse(status_code=401, content={"detail": f"Invalid token: {str(e)}"})
         return await call_next(request)
 
-    def verify_token(self, jwt_token: str) -> Optional[User]:
+    def verify_token(self, jwt_token: str, refresh_token: str) -> Optional[User]:
         """
         Verify JWT token validity and return user information using Supabase SDK.
         Args:
@@ -50,8 +50,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if not jwt_token:
             return None
         db_user = self.supabase_helper.client.auth.get_user(jwt_token)
-        if not db_user or not db_user.user:
+        session = self.supabase_helper.client.auth.set_session(jwt_token, refresh_token)
+
+        if not db_user or not db_user.user or not session or not session.user:
             return None
+        
         return db_user.user if db_user else None
         # except Exception:
         #     return None
