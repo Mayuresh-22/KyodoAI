@@ -34,8 +34,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
             if not user:
                 return JSONResponse(status_code=401, content={"detail": "Invalid or expired token", "refresh_token": refresh_token})
 
+            # this line authenticates user so we can use the supabase client
+            # without breaking RLS
             _session = self.supabase_helper.client.auth.set_session(token, refresh_token)
-            print(_session.session.model_dump() if _session.session else "No session found")
 
             request.state.user = user
             request.state.supabase_helper = self.supabase_helper
