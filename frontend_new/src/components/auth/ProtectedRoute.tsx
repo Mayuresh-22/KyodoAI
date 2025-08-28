@@ -1,7 +1,7 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from './AuthContext';
-import { CircularProgress } from '@mui/material';
+import React from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "./AuthContext";
+import { CircularProgress } from "@mui/material";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -16,7 +16,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <CircularProgress size={40} sx={{ color: '#ff6b35' }} />
+          <CircularProgress size={40} sx={{ color: "#ff6b35" }} />
           <div className="mt-4 text-gray-600">Checking authentication...</div>
         </div>
       </div>

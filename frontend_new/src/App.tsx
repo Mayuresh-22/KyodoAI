@@ -1,19 +1,25 @@
 // Devangs Changes
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import './App.css';
-import Navigation from './components/Navigation';
-import { AuthProvider } from './components/auth/AuthContext';
-import ProtectedRoute from './components/auth/ProtectedRoute';
-import Auth from './components/auth/Auth';
-import HomePage from './pages/HomePage';
-import DashboardPage from './pages/DashboardPage';
-import ChatRoomsPage from './pages/ChatRoomsPage';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import "./App.css";
+import Navigation from "./components/Navigation";
+import { AuthProvider } from "./components/auth/AuthContext";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+import Auth from "./components/auth/Auth";
+import HomePage from "./pages/HomePage";
+import DashboardPage from "./pages/DashboardPage";
+import ChatRoomsPage from "./pages/ChatRoomsPage";
 
 const NavigationWrapper = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const currentPage = location.pathname.slice(1) || 'home';
-  
+  const currentPage = location.pathname.slice(1) || "home";
+
   const handleNavigate = (page: string) => {
     navigate(`/${page.toLowerCase()}`);
   };
@@ -36,29 +42,29 @@ const AppContent = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<Auth />} />
           <Route path="/register" element={<Auth />} />
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <DashboardPage />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/chatrooms" 
+          <Route
+            path="/chatrooms"
             element={
               <ProtectedRoute>
                 <ChatRoomsPage />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/chatrooms/:email_id" 
+          <Route
+            path="/chatrooms/:email_id"
             element={
               <ProtectedRoute>
                 <ChatRoomsPage />
               </ProtectedRoute>
-            } 
+            }
           />
         </Routes>
       </div>

@@ -1,6 +1,6 @@
 // src/components/HeroOrb.tsx
-import React from 'react';
-import clsx from 'clsx';
+import React from "react";
+import clsx from "clsx";
 
 type HeroOrbProps = {
   // Overall diameter in pixels at base (mobile). Use responsive classes to override at breakpoints.
@@ -16,7 +16,7 @@ type HeroOrbProps = {
   // z-index layer
   zIndexClass?: string; // default "z-0"
   // Blend mode; 'normal' or 'multiply'
-  blend?: 'normal' | 'multiply';
+  blend?: "normal" | "multiply";
   // aria-hidden for decorative use
   decorative?: boolean;
 };
@@ -24,23 +24,23 @@ type HeroOrbProps = {
 const HeroOrb: React.FC<HeroOrbProps> = ({
   size = 1200,
   className,
-  translateY = '55%',
-  opacityClass = 'opacity-80',
-  blurClass = 'blur-[36px]',
-  zIndexClass = 'z-0',
-  blend = 'normal',
+  translateY = "55%",
+  opacityClass = "opacity-80",
+  blurClass = "blur-[36px]",
+  zIndexClass = "z-0",
+  blend = "normal",
   decorative = true,
 }) => {
   return (
     <div
       className={clsx(
         // base positioning: bottom center, no pointer events
-        'pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full',
+        "pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full",
         // dynamic utilities
         opacityClass,
         blurClass,
         zIndexClass,
-        className
+        className,
       )}
       style={{
         // size is inline for pixel precision; can still be overridden by className on breakpoints
@@ -58,7 +58,7 @@ const HeroOrb: React.FC<HeroOrbProps> = ({
           )
         `,
         mixBlendMode: blend,
-        overflow: 'hidden',
+        overflow: "hidden",
       }}
       aria-hidden={decorative}
     />

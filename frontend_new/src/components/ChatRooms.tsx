@@ -119,7 +119,7 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
         // Set selected email based on URL param or default to first
         if (email_id) {
           const emailIndex = emailsData.findIndex(
-            (email) => email.email_id === email_id
+            (email) => email.email_id === email_id,
           );
           if (emailIndex !== -1) {
             setSelectedEmailIndex(emailIndex);
@@ -194,7 +194,7 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
         (messagesWithActions.length !== combined.length &&
           messagesWithActions.every(
             (msg, index) =>
-              msg.actions.length !== combined[index].actions.length
+              msg.actions.length !== combined[index].actions.length,
           ))
       ) {
         console.log("Messages with actions have changed:", {
@@ -333,7 +333,7 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
                             >
                               Confidence:{" "}
                               {Math.round(
-                                (action.details.confidence_score || 0) * 100
+                                (action.details.confidence_score || 0) * 100,
                               )}
                               %
                             </span>
@@ -350,7 +350,7 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
                                 >
                                   {flag}
                                 </span>
-                              )
+                              ),
                             )}
                           </div>
                           {/* Email Summary */}
@@ -395,7 +395,7 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
                                   >
                                     {info}
                                   </span>
-                                )
+                                ),
                               )}
                             </div>
                             <div className="mb-1">
@@ -415,7 +415,7 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
                                 {action.details.clarifying_questions.map(
                                   (q: string, i: number) => (
                                     <li key={i}>{q}</li>
-                                  )
+                                  ),
                                 )}
                               </ul>
                             </div>
@@ -454,7 +454,7 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
                       )}
                   </TimelineContent>
                 </TimelineItem>
-              )
+              ),
           )}
         </Timeline>
       </div>
@@ -594,7 +594,7 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
                   <p>{msgWithActions.message.message}</p>
                   <div className="text-xs opacity-75 mt-2">
                     {new Date(
-                      msgWithActions.message.created_at
+                      msgWithActions.message.created_at,
                     ).toLocaleString()}
                   </div>
                 </div>
@@ -623,10 +623,10 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
                               >
                                 {step}
                               </button>
-                            )
+                            ),
                           )}
                         </div>
-                      ) : null
+                      ) : null,
                     )}
                   </div>
                 </div>

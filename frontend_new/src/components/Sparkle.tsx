@@ -1,7 +1,7 @@
 // src/components/Sparkle.tsx
-import React from 'react';
-import clsx from 'clsx';
-import './styles/sparkle.css'; // Ensure you have the sparkle-anim class defined here
+import React from "react";
+import clsx from "clsx";
+import "./styles/sparkle.css"; // Ensure you have the sparkle-anim class defined here
 
 /**
  * Sparkle component
@@ -21,19 +21,19 @@ import './styles/sparkle.css'; // Ensure you have the sparkle-anim class defined
 
 type SparkleProps = {
   // px size for width/height
-  size?: number;              // default 28
+  size?: number; // default 28
   // Tailwind or custom classNames for positioning (e.g., "absolute top-1/4 left-1/4")
   className?: string;
   // Degrees for rotation
-  rotate?: number;            // default 0
+  rotate?: number; // default 0
   // Opacity 0–1
-  opacity?: number;           // default 0.9
+  opacity?: number; // default 0.9
   // Animation delay for staggering (e.g., "0.6s")
-  delay?: string;             // default "0s"
+  delay?: string; // default "0s"
   // Choose one of the preset fills or pass customStops
-  variant?: 'peach' | 'orange' | 'pink';
+  variant?: "peach" | "orange" | "pink";
   // Override gradient stops if needed
-  customStops?: string;       // e.g., "from #FFD7B0 at 0%, ... (full css stops)"
+  customStops?: string; // e.g., "from #FFD7B0 at 0%, ... (full css stops)"
   // Decorative by default
   decorative?: boolean;
   style?: React.CSSProperties;
@@ -44,8 +44,8 @@ const Sparkle: React.FC<SparkleProps> = ({
   className,
   rotate = 0,
   opacity = 0.9,
-  delay = '0s',
-  variant = 'peach',
+  delay = "0s",
+  variant = "peach",
   customStops,
   decorative = true,
   style,
@@ -72,7 +72,11 @@ const Sparkle: React.FC<SparkleProps> = ({
 
   return (
     <span
-      className={clsx('inline-block select-none will-change-transform', className, 'sparkle-anim')}
+      className={clsx(
+        "inline-block select-none will-change-transform",
+        className,
+        "sparkle-anim",
+      )}
       style={{
         width: size,
         height: size,
@@ -88,7 +92,7 @@ const Sparkle: React.FC<SparkleProps> = ({
         height={size}
         viewBox="0 0 32 32"
         xmlns="http://www.w3.org/2000/svg"
-        role={decorative ? undefined : 'img'}
+        role={decorative ? undefined : "img"}
       >
         <defs>
           <radialGradient id={gradientId} cx="50%" cy="40%" r="65%">
@@ -97,8 +101,18 @@ const Sparkle: React.FC<SparkleProps> = ({
               : (stopsByVariant[variant] ?? stopsByVariant.peach)}
           </radialGradient>
           {/* Soft outer glow */}
-          <filter id={`${gradientId}-blur`} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="0.6" result="blur" />
+          <filter
+            id={`${gradientId}-blur`}
+            x="-50%"
+            y="-50%"
+            width="200%"
+            height="200%"
+          >
+            <feGaussianBlur
+              in="SourceGraphic"
+              stdDeviation="0.6"
+              result="blur"
+            />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />

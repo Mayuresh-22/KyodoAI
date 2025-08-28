@@ -2,21 +2,39 @@
 
 /* Float up/down + subtle scale */
 @keyframes sparkleFloat {
-0% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 0 rgba(255,160,100,0.0)); }
-50% { transform: translateY(-4px) scale(1.06); filter: drop-shadow(0 2px 4px rgba(255,160,100,0.25)); }
-100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 0 rgba(255,160,100,0.0)); }
+  0% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 0 rgba(255, 160, 100, 0));
+  }
+  50% {
+    transform: translateY(-4px) scale(1.06);
+    filter: drop-shadow(0 2px 4px rgba(255, 160, 100, 0.25));
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 0 rgba(255, 160, 100, 0));
+  }
 }
 
 /* Opacity twinkle */
 @keyframes sparkleTwinkle {
-0%,100% { opacity: 0.85; }
-50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* NEW: gentle rotation (full spin) */
 @keyframes sparkleRotate {
-0% { transform: rotate(0deg); }
-100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Combine float + twinkle + rotation
@@ -24,10 +42,10 @@ We use 2 animations on the element, and layer the float/scale via a child wrappe
 If you prefer to keep a single element, use CSS variables (below).
 */
 .sparkle-anim {
-transform-origin: center center;
-animation:
-sparkleRotate 12s linear infinite,
-sparkleTwinkle 2.8s ease-in-out infinite;
+  transform-origin: center center;
+  animation:
+    sparkleRotate 12s linear infinite,
+    sparkleTwinkle 2.8s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

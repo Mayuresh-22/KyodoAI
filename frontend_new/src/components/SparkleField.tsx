@@ -1,6 +1,6 @@
 // src/components/SparkleField.tsx
-import React from 'react';
-import Sparkle from './Sparkle';
+import React from "react";
+import Sparkle from "./Sparkle";
 
 type Item = {
   top?: string;
@@ -10,7 +10,7 @@ type Item = {
   size?: number;
   rotate?: number;
   delay?: string;
-  variant?: 'peach' | 'orange' | 'pink';
+  variant?: "peach" | "orange" | "pink";
   opacity?: number;
 };
 
@@ -28,20 +28,20 @@ const SparkleField: React.FC<SparkleFieldProps> = ({ items, className }) => {
           className="absolute"
           size={s.size ?? 28}
           rotate={s.rotate ?? 0}
-          delay={s.delay ?? '0s'}
-          variant={s.variant ?? 'peach'}
+          delay={s.delay ?? "0s"}
+          variant={s.variant ?? "peach"}
           opacity={s.opacity ?? 0.9}
           style={{
-top: s.top,
-left: s.left,
-right: s.right,
-bottom: s.bottom,
-position: 'absolute', // ensure absolute when style is used
-}}
+            top: s.top,
+            left: s.left,
+            right: s.right,
+            bottom: s.bottom,
+            position: "absolute", // ensure absolute when style is used
+          }}
           // position via style so we can mix top/left/right/bottom freely
-          {...{
+          {...({
             // pass-through positioning via style prop on wrapper span
-          } as any}
+          } as any)}
         />
       ))}
     </div>
