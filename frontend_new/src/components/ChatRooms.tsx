@@ -189,21 +189,14 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
         actions: actionsByMessage[message.msg_id] || [],
       }));
 
-      if (
-        messagesWithActions[0].message.email_id !== emailId ||
+      if (messagesWithActions.length === 0 ||
+        (messagesWithActions[0].message.email_id !== emailId) ||
         (messagesWithActions.length !== combined.length &&
           messagesWithActions.every(
             (msg, index) =>
               msg.actions.length !== combined[index].actions.length,
           ))
       ) {
-        console.log("Messages with actions have changed:", {
-          ma_len: messagesWithActions.length,
-          ma: messagesWithActions,
-          comb_len: combined.length,
-          comb: combined,
-        });
-
         setMessagesWithActions(combined);
       }
     } catch (error) {
