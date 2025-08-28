@@ -196,13 +196,6 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
             return msg.actions.length === combined[index]?.actions.length;
           }))
         ) {
-          console.log("Messages with actions have changed:", {
-            ma_len: prevMessages.length,
-            ma: prevMessages,
-            ma_email_id: prevMessages[0]?.message.email_id,
-            comb_len: combined.length,
-            comb: combined,
-          });
           return combined;
         }
         return prevMessages;
