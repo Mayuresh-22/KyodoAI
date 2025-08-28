@@ -4,6 +4,9 @@
 
 *Built for AgentHack 2025 by WeMakeDevs*
 
+## Watch Kyodo AI in Action
+[![Kyodo AI Demo Video](https://github.com/user-attachments/assets/6e4a10ad-ca59-42c5-bebb-29aaa06819c5)](https://youtu.be/DScdA5LHNHM)
+
 ## Project Overview
 
 KyodoAI revolutionizes how content creators manage collaboration opportunities by implementing an intelligent AI-powered system that autonomously handles the entire collaboration lifecycle. From discovering partnership emails to negotiating deals, KyodoAI acts as a sophisticated personal assistant that understands your brand, preferences, and business goals.
