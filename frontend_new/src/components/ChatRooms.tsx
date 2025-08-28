@@ -189,16 +189,24 @@ const ChatRooms: React.FC<ChatRoomsProps> = ({ onNavigate }) => {
         actions: actionsByMessage[message.msg_id] || [],
       }));
 
-      if (messagesWithActions.length === 0 ||
-        (messagesWithActions[0].message.email_id !== emailId) ||
-        (messagesWithActions.length !== combined.length &&
-          messagesWithActions.every(
-            (msg, index) =>
-              msg.actions.length !== combined[index].actions.length,
-          ))
-      ) {
-        setMessagesWithActions(combined);
-      }
+      setMessagesWithActions((prevMessages) => {
+        if (prevMessages.length === 0 ||
+          (prevMessages[0].message.email_id !== emailId) ||
+          (prevMessages.length !== combined.length || !prevMessages.every((msg, index) => {
+            return msg.actions.length === combined[index]?.actions.length;
+          }))
+        ) {
+          console.log("Messages with actions have changed:", {
+            ma_len: prevMessages.length,
+            ma: prevMessages,
+            ma_email_id: prevMessages[0]?.message.email_id,
+            comb_len: combined.length,
+            comb: combined,
+          });
+          return combined;
+        }
+        return prevMessages;
+      });
     } catch (error) {
       console.error("Error fetching messages with actions:", error);
     }
