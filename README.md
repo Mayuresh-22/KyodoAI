@@ -262,6 +262,9 @@ npm run dev
 - **Supabase Auth**: User authentication and management
 - **Real-time WebSockets**: Live updates and notifications
 
+### AI Dev Tools
+- **GitHub Copilot**
+
 ## Advanced Features
 
 ### AI Agent Specialization
@@ -288,12 +291,9 @@ npm run dev
 ```bash
 cd backend
 
-# Docker deployment
-docker build -t kyodoai-backend .
-docker run -p 8000:8000 kyodoai-backend
-
-# Or traditional deployment
 pip install -r requirements.txt
+uvicorn main:app --workers 4 --host 0.0.0.0 --port 8000
+# Or, using gunicorn + uvicorn
 gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --host 0.0.0.0 --port 8000
 ```
 
@@ -370,7 +370,7 @@ VITE_API_BASE_URL=https://your-backend-url.com
 **4. Database Connection Issues**
 - Verify Supabase URL and keys are correct
 - Ensure Row Level Security (RLS) is properly configured
-- Check that all required tables exist in production database
+- Check that all required tables exist in the production database
 
 ## Contributing
 
